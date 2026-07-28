@@ -3,7 +3,6 @@ package io.praporets.core.evaluation;
 import io.praporets.core.model.Bucket;
 import io.praporets.core.model.Rollout;
 import java.util.List;
-import net.jqwik.api.Assume;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.AlphaChars;
@@ -74,8 +73,10 @@ class BucketerTest {
     void increasing_first_bucket_weight_never_evicts_its_users(
             @ForAll @AlphaChars @StringLength(min = 1, max = 32) String userKey,
             @ForAll @IntRange(min = 1, max = 99_998) int smallerWeight,
-            @ForAll @IntRange(min = 2, max = 99_999) int largerWeight) {
-        Assume.that(smallerWeight < largerWeight);
+            @ForAll @IntRange(min = 1, max = 99_998) int delta) {
+        // конструктивна генерація замість Assume: жодна проба не відкидається,
+        // checks == tries (з Assume половина згенерованих пар марнувалась)
+        int largerWeight = Math.min(smallerWeight + delta, 99_999);
 
         var before = new Rollout("property-salt", List.of(
                 new Bucket("treatment", smallerWeight),
