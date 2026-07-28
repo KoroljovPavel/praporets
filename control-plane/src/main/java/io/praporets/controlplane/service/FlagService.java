@@ -109,7 +109,9 @@ public class FlagService {
         if (request.name() != null) flag.setName(request.name());
         if (request.description() != null) flag.setDescription(request.description());
 
-        FlagResponse response = toResponse(flagRepository.save(flag));
+        flagRepository.flush();
+
+        FlagResponse response = toResponse(flag);
         revisionRecorder.audit(actor, "PATCH", "FLAG", flag.getId(), jsonMapper.valueToTree(prevResponse), jsonMapper.valueToTree(response));
 
         return response;

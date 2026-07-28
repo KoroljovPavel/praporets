@@ -38,10 +38,10 @@ public class AuditLogEntry {
     private String entityType;
     @Column(nullable = false)
     private UUID entityId;
-    @JdbcTypeCode(SqlTypes.UUID)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "before_state", columnDefinition = "JSONB")
     private JsonNode before;
-    @JdbcTypeCode(SqlTypes.UUID)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "after_state", columnDefinition = "JSONB")
     private JsonNode after;
     @CreationTimestamp
