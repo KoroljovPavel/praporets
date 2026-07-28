@@ -2,7 +2,11 @@ package io.praporets.controlplane.service;
 
 import io.praporets.controlplane.api.dto.EvaluatePreviewRequest;
 import io.praporets.controlplane.api.dto.EvaluatePreviewResponse;
+import io.praporets.controlplane.domain.Environment;
 import io.praporets.controlplane.domain.EnvironmentRepository;
+import io.praporets.core.evaluation.EvaluationResult;
+import io.praporets.core.evaluation.Evaluator;
+import io.praporets.core.model.EnvironmentConfig;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,18 +36,25 @@ import tools.jackson.databind.json.JsonMapper;
 public class PreviewService {
 
     private final JsonMapper jsonMapper;
-    private final EnvironmentRepository environmentRepository;
     private final EnvironmentConfigAssembler assembler;
+    private final EnvironmentRepository environmentRepository;
 
     public PreviewService(JsonMapper jsonMapper, EnvironmentRepository environmentRepository,
                           EnvironmentConfigAssembler assembler) {
         this.jsonMapper = jsonMapper;
-        this.environmentRepository = environmentRepository;
         this.assembler = assembler;
+        this.environmentRepository = environmentRepository;
     }
 
     /** @throws NotFoundException якщо середовища немає (єдиний не-200, H2) */
     public EvaluatePreviewResponse preview(EvaluatePreviewRequest request) {
-        throw new UnsupportedOperationException("01h: твоя реалізація");
+        Environment environment = environmentRepository.findByKey(request.environment())
+            .orElseThrow(() -> new NotFoundException("Entity with key [" + request.environment() + "] not found"));
+        EnvironmentConfig config = assembler.assembleForFlag(environment.getKey(), request.flagKey());
+        EvaluationResult result = Evaluator.evaluate(config, request.flagKey(), request.context());
+
+        return new EvaluatePreviewResponse(result.flagKey(), result.variantKey(),
+            result.jsonValue() == null ? null : jsonMapper.readTree(result.jsonValue()),
+            result.reason(), result.ruleId(), environment.getRevision());
     }
 }

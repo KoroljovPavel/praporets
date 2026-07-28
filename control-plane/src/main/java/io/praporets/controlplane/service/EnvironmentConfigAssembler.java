@@ -3,7 +3,13 @@ package io.praporets.controlplane.service;
 import io.praporets.controlplane.domain.FlagConfigRepository;
 import io.praporets.controlplane.domain.SegmentRepository;
 import io.praporets.core.model.EnvironmentConfig;
+import io.praporets.core.model.FlagDefinition;
+import io.praporets.core.model.Segment;
+import io.praporets.core.model.Variant;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Збірка {@link EnvironmentConfig} (вхід ядра) з БД — H1. Окремий компонент,
@@ -31,13 +37,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class EnvironmentConfigAssembler {
 
-    private final FlagConfigRepository flagConfigRepository;
     private final SegmentRepository segmentRepository;
+    private final FlagConfigRepository flagConfigRepository;
 
     public EnvironmentConfigAssembler(FlagConfigRepository flagConfigRepository,
                                       SegmentRepository segmentRepository) {
-        this.flagConfigRepository = flagConfigRepository;
         this.segmentRepository = segmentRepository;
+        this.flagConfigRepository = flagConfigRepository;
     }
 
     /**
@@ -45,6 +51,17 @@ public class EnvironmentConfigAssembler {
      * рівно те, що треба ядру для обчислення цього флага.
      */
     public EnvironmentConfig assembleForFlag(String environmentKey, String flagKey) {
-        throw new UnsupportedOperationException("01h: твоя реалізація");
+        Map<String, FlagDefinition> flags = flagConfigRepository.findByFlagKeyAndEnvironmentKey(flagKey, environmentKey)
+            .map(f -> Map.of(flagKey, new FlagDefinition(
+                flagKey, f.isEnabled(), f.getDefaultVariant(), f.getOffVariant(),
+                f.getFlag().getVariants().stream().map(v -> new Variant(v.getKey(), v.getValue())).toList(),
+                f.getRules(), f.getRollout()
+            ))).orElse(Map.of());
+
+        Map<String, Segment> segmentMap = segmentRepository.findAllByEnvironmentKey(environmentKey).stream()
+            .map(s -> new io.praporets.core.model.Segment(s.getKey(), s.getConditions()))
+            .collect(Collectors.toMap(io.praporets.core.model.Segment::key, s -> s));
+
+        return new EnvironmentConfig(flags, segmentMap);
     }
 }

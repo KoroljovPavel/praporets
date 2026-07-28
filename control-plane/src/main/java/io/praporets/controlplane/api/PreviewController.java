@@ -27,6 +27,6 @@ public class PreviewController {
 
     @PostMapping
     EvaluatePreviewResponse evaluatePreview(@RequestBody @Valid EvaluatePreviewRequest request) {
-        throw new UnsupportedOperationException("01h: твоя реалізація");
+        return previewService.preview(request);
     }
 }
