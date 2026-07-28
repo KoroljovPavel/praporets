@@ -1,5 +1,6 @@
 package io.praporets.controlplane.domain;
 
+import io.praporets.controlplane.TestPostgres;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -11,12 +12,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * для query-count тестів (у проді statistics не вмикаємо — це тест-конфіг).
  * Кожен тест відкатується — база між тестами чиста.
  *
- * <p>Контейнер — singleton: старт у static-ініціалізаторі, БЕЗ
- * {@code @Testcontainers}/{@code @Container}. Розширення JUnit зупиняє
- * static-контейнер після кожного тест-класу, а Spring кешує ApplicationContext
- * (і зафіксований у ньому JDBC URL) на всі класи-нащадки — другий клас
- * отримав би контекст, що дивиться на мертвий порт. Singleton живе до кінця
- * JVM; прибирає його Ryuk.
+ * <p>Контейнер — спільний singleton {@link TestPostgres} (чому саме так —
+ * дивись JavaDoc там).
  */
 @DataJpaTest(properties = {
         "spring.jpa.properties.hibernate.generate_statistics=true",
@@ -26,9 +23,5 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 public abstract class AbstractRepositoryTest {
 
     @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
-
-    static {
-        POSTGRES.start();
-    }
+    static final PostgreSQLContainer POSTGRES = TestPostgres.INSTANCE;
 }
