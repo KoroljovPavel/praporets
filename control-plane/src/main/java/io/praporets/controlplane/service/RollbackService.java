@@ -1,14 +1,16 @@
 package io.praporets.controlplane.service;
 
-import io.praporets.controlplane.api.dto.FlagConfigResponse;
-import io.praporets.controlplane.api.dto.RollbackResponse;
-import io.praporets.controlplane.api.dto.SegmentResponse;
-import io.praporets.controlplane.domain.EnvironmentRepository;
-import io.praporets.controlplane.domain.FlagConfigRepository;
-import io.praporets.controlplane.domain.RevisionLogRepository;
+import io.praporets.controlplane.api.dto.*;
+import io.praporets.controlplane.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Відкат середовища на стару ревізію (CP-06, H4–H6): журнал відтворює старий
@@ -57,21 +59,23 @@ import tools.jackson.databind.json.JsonMapper;
 public class RollbackService {
 
     private final JsonMapper jsonMapper;
+    private final SegmentService segmentService;
+    private final RevisionRecorder revisionRecorder;
+    private final FlagConfigService flagConfigService;
+    private final FlagConfigRepository flagConfigRepository;
     private final EnvironmentRepository environmentRepository;
     private final RevisionLogRepository revisionLogRepository;
-    private final FlagConfigRepository flagConfigRepository;
-    private final FlagConfigService flagConfigService;
-    private final SegmentService segmentService;
 
     public RollbackService(JsonMapper jsonMapper, EnvironmentRepository environmentRepository,
                            RevisionLogRepository revisionLogRepository, FlagConfigRepository flagConfigRepository,
-                           FlagConfigService flagConfigService, SegmentService segmentService) {
+                           FlagConfigService flagConfigService, SegmentService segmentService, RevisionRecorder revisionRecorder) {
         this.jsonMapper = jsonMapper;
+        this.segmentService = segmentService;
+        this.revisionRecorder = revisionRecorder;
+        this.flagConfigService = flagConfigService;
+        this.flagConfigRepository = flagConfigRepository;
         this.environmentRepository = environmentRepository;
         this.revisionLogRepository = revisionLogRepository;
-        this.flagConfigRepository = flagConfigRepository;
-        this.flagConfigService = flagConfigService;
-        this.segmentService = segmentService;
     }
 
     /**
@@ -81,6 +85,58 @@ public class RollbackService {
      */
     @Transactional
     public RollbackResponse rollback(String environmentKey, long toRevision, String actor) {
-        throw new UnsupportedOperationException("01h: твоя реалізація");
+        Environment environment = environmentRepository.findByKey(environmentKey)
+            .orElseThrow(() -> new NotFoundException("Environment not found: " + environmentKey));
+        if (!isValidRevision(toRevision, environment))
+            throw new DomainValidationException("Revision out of range:  " + toRevision);
+
+        JsonNode prevRevision = jsonMapper.createObjectNode().put("revision", environment.getRevision());
+
+        Map<GroupingKey, RevisionLogEntry> revisions = revisionLogRepository.findByEnvironmentKeyAndRevisionLessThanEqualOrderByRevisionDesc(environmentKey, toRevision)
+            .stream()
+            .collect(Collectors.toMap(
+                this::extractGroupingKey,
+                Function.identity(),
+                (existing, replacement) -> existing,
+                LinkedHashMap::new
+            ));
+
+        for (Map.Entry<GroupingKey, RevisionLogEntry> entry : revisions.entrySet()) {
+            switch (entry.getKey().kind()) {
+                case "FLAG" -> {
+                    long currentVersion = flagConfigRepository.findByFlagKeyAndEnvironmentKey(entry.getKey().key(), environment.getKey())
+                        .orElseThrow(() -> new IllegalStateException("FlagConfig with key [" + entry.getKey().key() + "] can't be absent"))
+                        .getVersion();
+                    FlagConfigResponse flagConfigResponse = jsonMapper.treeToValue(entry.getValue().getPayload(),  FlagConfigResponse.class);
+                    UpsertFlagConfigRequest request = new UpsertFlagConfigRequest(flagConfigResponse.enabled(), flagConfigResponse.defaultVariant(),
+                        flagConfigResponse.offVariant(), flagConfigResponse.rules(), flagConfigResponse.rollout());
+                    flagConfigService.upsert(environment.getKey(), entry.getKey().key(), currentVersion, request, actor);
+                }
+                case "SEGMENT" -> {
+                    SegmentResponse segmentResponse = jsonMapper.treeToValue(entry.getValue().getPayload(), SegmentResponse.class);
+                    UpsertSegmentRequest request = new UpsertSegmentRequest(segmentResponse.conditions());
+                    segmentService.upsert(environment.getKey(), entry.getKey().key(), request, actor);
+                }
+            }
+        }
+
+        RollbackResponse response = new RollbackResponse(environment.getKey(), toRevision, environment.getRevision());
+
+        revisionRecorder.audit(actor, "ROLLBACK", "ENVIRONMENT", environment.getId(), prevRevision, jsonMapper.valueToTree(response));
+
+        return response;
     }
+
+    private GroupingKey extractGroupingKey(RevisionLogEntry revision) {
+        return switch (revision.getChangeType()) {
+            case FLAG_CONFIG_UPDATED, FLAG_TOGGLED -> new GroupingKey("FLAG", jsonMapper.treeToValue(revision.getPayload(), FlagConfigResponse.class).flagKey());
+            case SEGMENT_UPDATED -> new GroupingKey("SEGMENT", jsonMapper.treeToValue(revision.getPayload(), SegmentResponse.class).key());
+        };
+    }
+
+    private boolean isValidRevision(long revision, Environment environment) {
+        return revision >= 1 && revision <= environment.getRevision();
+    }
+
+    private record GroupingKey(String kind, String key) {}
 }

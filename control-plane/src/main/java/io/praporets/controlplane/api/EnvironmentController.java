@@ -59,10 +59,10 @@ public class EnvironmentController {
      * 400 ({@code toRevision} поза діапазоном, H6). Мутація → actor з X-Actor
      * (G7), як у create.
      */
-    @PostMapping("/{environmentKey}/rollback")
-    public RollbackResponse rollback(@PathVariable String environmentKey,
+    @PostMapping("/{env}/rollback")
+    public RollbackResponse rollback(@PathVariable(name = "env") String environmentKey,
                                      @RequestBody @Valid RollbackRequest request,
                                      @RequestHeader(name = "X-Actor", defaultValue = "anonymous") String actor) {
-        throw new UnsupportedOperationException("01h: твоя реалізація");
+        return rollbackService.rollback(environmentKey, request.toRevision(), actor);
     }
 }
