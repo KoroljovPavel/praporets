@@ -1,6 +1,7 @@
 package io.praporets.core.model;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Уся конфігурація середовища, потрібна для обчислення: флаги + сегменти.
@@ -22,6 +23,21 @@ public record EnvironmentConfig(Map<String, FlagDefinition> flags, Map<String, S
      * @throws IllegalArgumentException якщо ключ мапи не збігається з ключем сутності
      */
     public EnvironmentConfig {
-        throw new UnsupportedOperationException("01d: implement me");
+        flags = Map.copyOf(flags);
+        segments = Map.copyOf(segments);
+        validateMapKeys(flags, "flags");
+        validateMapKeys(segments, "segments");
+    }
+
+    private static void validateMapKeys(Map<String, ?> map, String mapName) {
+        if (!map.entrySet().stream()
+            .allMatch(entry -> Objects.equals(entry.getKey(), getInternalKey(entry.getValue()))))
+            throw new IllegalArgumentException(mapName + " map keys must match keys in map values keys");
+    }
+
+    private static String getInternalKey(Object value) {
+        if (value instanceof FlagDefinition f) return f.key();
+        if (value instanceof Segment s) return s.key();
+        throw new IllegalArgumentException("Unknown type: " + value);
     }
 }

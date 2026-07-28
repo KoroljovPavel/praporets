@@ -1,6 +1,7 @@
 package io.praporets.core.model;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Повна конфігурація одного флага в межах середовища — все, що потрібно для
@@ -38,6 +39,13 @@ public record FlagDefinition(
      * @throws IllegalArgumentException якщо {@code key}, {@code defaultVariant} чи {@code offVariant} blank
      */
     public FlagDefinition {
-        throw new UnsupportedOperationException("01d: implement me");
+        variants = List.copyOf(variants);
+        rules = List.copyOf(rules);
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(defaultVariant, "defaultVariant");
+        Objects.requireNonNull(offVariant, "offVariant");
+        if (key.isBlank()) throw new IllegalArgumentException("key must be non-blank");
+        if (defaultVariant.isBlank()) throw new IllegalArgumentException("defaultVariant must be non-blank");
+        if (offVariant.isBlank()) throw new IllegalArgumentException("offVariant must be non-blank");
     }
 }

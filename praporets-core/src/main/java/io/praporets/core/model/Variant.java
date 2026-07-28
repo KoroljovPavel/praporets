@@ -1,5 +1,7 @@
 package io.praporets.core.model;
 
+import java.util.Objects;
+
 /**
  * Одне з можливих значень флага: для boolean — {@code on}/{@code off},
  * для мультиваріантного — {@code control}/{@code treatment-a}/...
@@ -21,6 +23,8 @@ public record Variant(String key, String jsonValue) {
      * @throws IllegalArgumentException якщо {@code key} blank
      */
     public Variant {
-        throw new UnsupportedOperationException("01d: implement me");
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(jsonValue, "jsonValue");
+        if (key.isBlank()) throw new IllegalArgumentException("key must be non-blank");
     }
 }

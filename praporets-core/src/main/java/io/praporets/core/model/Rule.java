@@ -1,6 +1,7 @@
 package io.praporets.core.model;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Правило таргетингу: «якщо користувач збігається з усіма умовами — віддати
@@ -31,6 +32,12 @@ public record Rule(String id, List<Clause> clauses, String variantKey, Rollout r
      *                                  (обидва {@code variantKey}/{@code rollout} задані чи обидва {@code null})
      */
     public Rule {
-        throw new UnsupportedOperationException("01d: implement me");
+        clauses = List.copyOf(clauses);
+        Objects.requireNonNull(id, "id");
+        if (id.isBlank()) throw new IllegalArgumentException("id must be non-blank");
+        if (variantKey != null && rollout != null)
+            throw new IllegalArgumentException("variantKey and rollout cannot be both non-null");
+        else if (variantKey == null && rollout == null)
+            throw new IllegalArgumentException("variantKey and rollout cannot be both null");
     }
 }

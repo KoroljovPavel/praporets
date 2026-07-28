@@ -1,5 +1,7 @@
 package io.praporets.core.evaluation;
 
+import java.util.Objects;
+
 /**
  * Результат обчислення одного флага для одного контексту.
  *
@@ -40,6 +42,19 @@ public record EvaluationResult(
      *                                  суперечить матриці вище
      */
     public EvaluationResult {
-        throw new UnsupportedOperationException("01d: implement me");
+        Objects.requireNonNull(flagKey, "flagKey");
+        Objects.requireNonNull(reason, "reason");
+        if (flagKey.isBlank()) throw new IllegalArgumentException("flagKey must be non-blank");
+
+        switch (reason) {
+            case FLAG_NOT_FOUND         -> require(variantKey == null && jsonValue == null && ruleId == null, "FLAG_NOT_FOUND: variantKey, jsonValue, ruleId must be all null");
+            case RULE_MATCH             -> require(variantKey != null && ruleId != null, "RULE_MATCH: variantKey, ruleId must be all non-null");
+            case ROLLOUT                -> require(variantKey != null, "ROLLOUT: variantKey must be non-null");
+            case FLAG_DISABLED, DEFAULT -> require(variantKey != null && ruleId == null , "FLAG_DISABLED or DEFAULT: variantKey must be non-null and ruleId must be null");
+        }
+    }
+
+    private void require(boolean condition, String message) {
+        if (!condition) throw new IllegalArgumentException(message);
     }
 }
