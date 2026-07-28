@@ -1,5 +1,6 @@
 package io.praporets.core.evaluation;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -26,7 +27,8 @@ public record Semver(int major, int minor, int patch) implements Comparable<Semv
      * @throws IllegalArgumentException якщо будь-яка компонента від'ємна
      */
     public Semver {
-        throw new UnsupportedOperationException("01c: implement me");
+        if (major < 0 || minor < 0 || patch < 0)
+            throw new IllegalArgumentException("major and minor and patch must be non-negative");
     }
 
     /**
@@ -37,7 +39,21 @@ public record Semver(int major, int minor, int patch) implements Comparable<Semv
      * @throws NullPointerException якщо {@code raw} {@code null}
      */
     public static Optional<Semver> parse(String raw) {
-        throw new UnsupportedOperationException("01c: implement me");
+        Objects.requireNonNull(raw, "raw");
+        String[] rawSplit = raw.split("\\.");
+
+        if (rawSplit.length > 3 || rawSplit.length < 1 || raw.endsWith("."))
+            return Optional.empty();
+
+        try {
+            int patch = rawSplit.length == 3 ? Integer.parseInt(rawSplit[2]) : 0;
+            int minor = rawSplit.length > 1 ? Integer.parseInt(rawSplit[1]) : 0;
+            int major = Integer.parseInt(rawSplit[0]);
+
+            return Optional.of(new Semver(major, minor, patch));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     /**
@@ -45,6 +61,12 @@ public record Semver(int major, int minor, int patch) implements Comparable<Semv
      */
     @Override
     public int compareTo(Semver other) {
-        throw new UnsupportedOperationException("01c: implement me");
+        if (this.major > other.major) return 1;
+        if (this.major < other.major) return -1;
+
+        if (this.minor > other.minor) return 1;
+        if (this.minor < other.minor) return -1;
+
+        return Integer.compare(this.patch, other.patch);
     }
 }
