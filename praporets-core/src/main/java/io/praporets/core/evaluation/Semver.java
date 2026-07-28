@@ -1,5 +1,6 @@
 package io.praporets.core.evaluation;
 
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -61,12 +62,10 @@ public record Semver(int major, int minor, int patch) implements Comparable<Semv
      */
     @Override
     public int compareTo(Semver other) {
-        if (this.major > other.major) return 1;
-        if (this.major < other.major) return -1;
-
-        if (this.minor > other.minor) return 1;
-        if (this.minor < other.minor) return -1;
-
-        return Integer.compare(this.patch, other.patch);
+        return ORDER.compare(this, other);
     }
+
+    private static final Comparator<Semver> ORDER = Comparator.comparingInt(Semver::major)
+        .thenComparingInt(Semver::minor)
+        .thenComparingInt(Semver::patch);
 }
