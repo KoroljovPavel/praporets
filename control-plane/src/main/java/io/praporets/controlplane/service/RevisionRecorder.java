@@ -1,7 +1,10 @@
 package io.praporets.controlplane.service;
 
-import tools.jackson.databind.JsonNode;
+import io.praporets.controlplane.domain.AuditLogEntry;
+import io.praporets.controlplane.domain.AuditLogRepository;
 import io.praporets.controlplane.domain.ChangeType;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
 
 import java.util.UUID;
 
@@ -26,7 +29,14 @@ import java.util.UUID;
  * Знадобиться і мутатор ревізії на Environment — краще не голий setter,
  * а {@code long incrementRevision()} (повертає нове значення).
  */
+@Component
 public class RevisionRecorder {
+
+    private final AuditLogRepository auditLogRepository;
+
+    public RevisionRecorder(AuditLogRepository auditLogRepository) {
+        this.auditLogRepository = auditLogRepository;
+    }
 
     /**
      * Інкрементує ревізію середовища і додає запис у журнал ревізій.
@@ -48,6 +58,6 @@ public class RevisionRecorder {
      */
     public void audit(String actor, String action, String entityType, UUID entityId,
                       JsonNode before, JsonNode after) {
-        throw new UnsupportedOperationException("не реалізовано");
+        auditLogRepository.save(new AuditLogEntry(actor, action, entityType, entityId, before, after));
     }
 }

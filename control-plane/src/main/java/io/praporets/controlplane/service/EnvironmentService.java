@@ -3,6 +3,16 @@ package io.praporets.controlplane.service;
 import io.praporets.controlplane.api.dto.CreateEnvironmentRequest;
 import io.praporets.controlplane.api.dto.EnvironmentResponse;
 import io.praporets.controlplane.api.dto.RevisionResponse;
+import io.praporets.controlplane.domain.Environment;
+import io.praporets.controlplane.domain.EnvironmentRepository;
+import io.praporets.controlplane.domain.RevisionLogRepository;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
@@ -13,11 +23,29 @@ import java.util.List;
  * {@code @Transactional} або на методах, читання — {@code readOnly = true}.
  * Ін'єкція — через конструктор (ArchUnit валить field injection).
  */
+@Service
+@Transactional(readOnly = true)
 public class EnvironmentService {
+
+    private final JsonMapper jsonMapper;
+    private final RevisionRecorder revisionRecorder;
+    private final EnvironmentRepository environmentRepository;
+    private final RevisionLogRepository revisionLogRepository;
+
+
+    public EnvironmentService(RevisionRecorder revisionRecorder, EnvironmentRepository environmentRepository,
+                              RevisionLogRepository revisionLogRepository, JsonMapper jsonMapper) {
+        this.jsonMapper = jsonMapper;
+        this.revisionRecorder = revisionRecorder;
+        this.environmentRepository = environmentRepository;
+        this.revisionLogRepository = revisionLogRepository;
+    }
 
     /** Усі середовища, відсортовані за ключем. */
     public List<EnvironmentResponse> list() {
-        throw new UnsupportedOperationException("не реалізовано");
+        return environmentRepository.findAll(Sort.by("key")).stream().map(e -> new EnvironmentResponse(
+            e.getId(), e.getKey(), e.getName(), e.getRevision(), e.getCreatedAt()
+        )).toList();
     }
 
     /**
@@ -27,8 +55,18 @@ public class EnvironmentService {
      *
      * @throws DomainValidationException якщо ключ уже зайнятий
      */
-    public EnvironmentResponse create(CreateEnvironmentRequest request, String actor) {
-        throw new UnsupportedOperationException("не реалізовано");
+    @Transactional
+    public EnvironmentResponse create(CreateEnvironmentRequest request, String actor) throws DomainValidationException {
+        if (environmentRepository.findByKey(request.key()).isPresent()) {
+            throw new DuplicateKeyException("Environment with key [" + request.key() + "] already exists");
+        }
+        Environment environment = environmentRepository.save(new Environment(request.key(), request.name()));
+        EnvironmentResponse response = new EnvironmentResponse(
+            environment.getId(), environment.getKey(), environment.getName(), environment.getRevision(), environment.getCreatedAt()
+        );
+
+        revisionRecorder.audit(actor, "CREATE", "ENVIRONMENT", environment.getId(), null, jsonMapper.valueToTree(response));
+        return response;
     }
 
     /**
@@ -39,6 +77,8 @@ public class EnvironmentService {
      * @throws NotFoundException якщо середовища немає
      */
     public List<RevisionResponse> revisions(String environmentKey, int limit) {
-        throw new UnsupportedOperationException("не реалізовано");
+        return revisionLogRepository.findByEnvironmentKeyOrderByRevisionDesc(environmentKey, Limit.of(limit)).stream().map(r -> new RevisionResponse(
+            r.getRevision(), r.getChangeType(), r.getPayload(), r.getCreatedAt()
+        )).toList();
     }
 }

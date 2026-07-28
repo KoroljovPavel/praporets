@@ -4,7 +4,10 @@ import io.praporets.controlplane.api.dto.CreateEnvironmentRequest;
 import io.praporets.controlplane.api.dto.EnvironmentResponse;
 import io.praporets.controlplane.api.dto.RevisionResponse;
 import io.praporets.controlplane.service.EnvironmentService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -16,6 +19,8 @@ import java.util.List;
  * {@code @Valid} на тілах, {@code @RequestHeader(name = "X-Actor",
  * defaultValue = "anonymous")} для actor (G7).
  */
+@RestController
+@RequestMapping("/api/v1/environments")
 public class EnvironmentController {
 
     private final EnvironmentService environments;
@@ -25,17 +30,22 @@ public class EnvironmentController {
     }
 
     /** {@code GET} → 200. */
+    @GetMapping
     public List<EnvironmentResponse> list() {
-        throw new UnsupportedOperationException("не реалізовано");
+        return environments.list();
     }
 
     /** {@code POST} → 201 + {@code Location: /api/v1/environments/{key}}. */
-    public ResponseEntity<EnvironmentResponse> create(CreateEnvironmentRequest request, String actor) {
-        throw new UnsupportedOperationException("не реалізовано");
+    @PostMapping
+    public ResponseEntity<EnvironmentResponse> create(@RequestBody @Valid CreateEnvironmentRequest request,
+                                                      @RequestHeader(name = "X-Actor", defaultValue = "anonymous") String actor) {
+        EnvironmentResponse response = environments.create(request, actor);
+        return ResponseEntity.status(HttpStatus.CREATED).header("Location", "/api/v1/environments/" + response.key()).body(response);
     }
 
     /** {@code GET /{env}/revisions?limit=50} → 200, новіші перші. */
-    public List<RevisionResponse> revisions(String environmentKey, int limit) {
-        throw new UnsupportedOperationException("не реалізовано");
+    @GetMapping("/{environmentKey}/revisions")
+    public List<RevisionResponse> revisions(@PathVariable String environmentKey, @RequestParam(defaultValue = "50") int limit) {
+        return environments.revisions(environmentKey, limit);
     }
 }

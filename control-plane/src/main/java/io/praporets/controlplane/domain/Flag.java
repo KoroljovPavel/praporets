@@ -84,12 +84,20 @@ public class Flag {
         return description;
     }
 
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public ValueType getValueType() {
         return valueType;
     }
 
     public boolean isArchived() {
         return archived;
+    }
+
+    public void setArchived(boolean archived) {
+        this.archived = archived;
     }
 
     public Instant getCreatedAt() {

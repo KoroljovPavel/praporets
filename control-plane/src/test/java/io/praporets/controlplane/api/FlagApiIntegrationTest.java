@@ -109,6 +109,33 @@ class FlagApiIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void duplicate_variant_keys_are_rejected() throws Exception {
+        mvc.perform(post("/api/v1/flags")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "key": "checkout.new-flow",
+                                  "name": "New checkout",
+                                  "valueType": "BOOLEAN",
+                                  "variants": [{"key": "on", "value": true}, {"key": "on", "value": false}]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void duplicate_flag_key_is_409_conflict() throws Exception {
+        createFlag();
+
+        // повторне створення того самого ресурсу — конфлікт стану, не помилка формату:
+        // 409, не 400. Детермінований шлях — явний pre-check у сервісі (див. фідбек кроку)
+        mvc.perform(post("/api/v1/flags").contentType(MediaType.APPLICATION_JSON).content(FLAG_JSON))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
     void config_upsert_toggle_and_revision_journal() throws Exception {
         createEnvironment();
         createFlag();
