@@ -43,6 +43,6 @@ bin/
 .DS_Store
 
 steps/
-.CLAUDE
-.praporets-spec.md
+CLAUDE.md
+praporets-spec.md
 README-draft.md
