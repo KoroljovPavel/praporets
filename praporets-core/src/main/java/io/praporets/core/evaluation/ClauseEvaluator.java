@@ -3,8 +3,11 @@ package io.praporets.core.evaluation;
 import io.praporets.core.model.Clause;
 import io.praporets.core.model.EvaluationContext;
 import io.praporets.core.model.Segment;
+
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Обчислення умов таргетингу над контекстом користувача. Єдине місце зі switch
@@ -40,7 +43,57 @@ public final class ClauseEvaluator {
      * @throws NullPointerException якщо будь-який аргумент {@code null}
      */
     public static boolean matches(Clause clause, EvaluationContext context, Map<String, Segment> segments) {
-        throw new UnsupportedOperationException("01c: implement me");
+        Objects.requireNonNull(clause, "clause");
+        Objects.requireNonNull(context, "context");
+
+        String attribute = context.attribute(clause.attribute()).orElse(null);
+        ClauseMatcher matcher = ClauseMatcher.compile(clause);
+
+        boolean result = switch (matcher) {
+            case ClauseMatcher.In inMatcher                -> attribute != null && inMatcher(inMatcher, attribute);
+            case ClauseMatcher.Text textMatcher            -> attribute != null && textMatcher(textMatcher, attribute);
+            case ClauseMatcher.Numeric numericMatcher      -> attribute != null && numericMatcher(numericMatcher, attribute);
+            case ClauseMatcher.SemverAtLeast semverMatcher -> attribute != null && semverMatcher(semverMatcher, attribute);
+            case ClauseMatcher.InSegment inSegmentMatcher  -> inSegmentMatcher(inSegmentMatcher, context, segments);
+        };
+
+        return clause.negate() != result;
+    }
+
+    private static boolean inMatcher(ClauseMatcher.In inMatcher, String attribute) {
+        return inMatcher.values().contains(attribute);
+    }
+
+    private static boolean textMatcher(ClauseMatcher.Text textMatcher, String attribute) {
+        return switch (textMatcher.op()) {
+            case STARTS_WITH -> textMatcher.values().stream().anyMatch(attribute::startsWith);
+            case ENDS_WITH   -> textMatcher.values().stream().anyMatch(attribute::endsWith);
+            case CONTAINS    -> textMatcher.values().stream().anyMatch(attribute::contains);
+        };
+    }
+
+    private static boolean numericMatcher(ClauseMatcher.Numeric numericMatcher, String attribute) {
+        try {
+            BigDecimal value = new BigDecimal(attribute);
+            return switch (numericMatcher.op()) {
+                case GREATER_THAN -> numericMatcher.bounds().stream().anyMatch(bound -> value.compareTo(bound) > 0);
+                case LESS_THAN    -> numericMatcher.bounds().stream().anyMatch(bound -> value.compareTo(bound) < 0);
+            };
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean semverMatcher(ClauseMatcher.SemverAtLeast semverMatcher, String attribute) {
+        return Semver.parse(attribute)
+            .map(s -> semverMatcher.minimums().stream().anyMatch(m -> s.compareTo(m) >= 0))
+            .orElse(false);
+    }
+
+    private static boolean inSegmentMatcher(ClauseMatcher.InSegment inSegmentMatcher, EvaluationContext context, Map<String, Segment> segments) {
+        return inSegmentMatcher.segmentKeys().stream()
+            .filter(segments::containsKey)
+            .anyMatch(s -> matchesAll(segments.get(s).clauses(), context, Map.of()));
     }
 
     /**
@@ -50,6 +103,10 @@ public final class ClauseEvaluator {
      * @throws NullPointerException якщо будь-який аргумент {@code null}
      */
     public static boolean matchesAll(List<Clause> clauses, EvaluationContext context, Map<String, Segment> segments) {
-        throw new UnsupportedOperationException("01c: implement me");
+        Objects.requireNonNull(clauses, "clauses");
+        Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(segments, "segments");
+
+        return clauses.stream().allMatch(clause -> matches(clause, context, segments));
     }
 }
