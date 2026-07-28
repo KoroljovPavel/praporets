@@ -3,6 +3,7 @@ package io.praporets.core.evaluation;
 import io.praporets.core.model.Clause;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -75,6 +76,17 @@ public sealed interface ClauseMatcher {
      * @throws NullPointerException якщо {@code clause} {@code null}
      */
     static ClauseMatcher compile(Clause clause) {
-        throw new UnsupportedOperationException("01c: implement me");
+        Objects.requireNonNull(clause, "clause");
+
+        return switch (clause.operator()) {
+            case IN -> new In(Set.copyOf(clause.values()));
+            case STARTS_WITH, ENDS_WITH, CONTAINS -> new Text(TextOp.valueOf(clause.operator().name()), List.copyOf(clause.values()));
+            case GREATER_THAN, LESS_THAN -> new Numeric(NumericOp.valueOf(clause.operator().name()),
+                clause.values().stream()
+                    .filter(n -> n.matches("-?\\d+(\\.\\d+)?"))
+                    .map(BigDecimal::new).toList());
+            case SEMVER_GREATER_OR_EQUAL -> new SemverAtLeast(clause.values().stream().flatMap(v -> Semver.parse(v).stream()).toList());
+            case IN_SEGMENT -> new InSegment(Set.copyOf(clause.values()));
+        };
     }
 }
