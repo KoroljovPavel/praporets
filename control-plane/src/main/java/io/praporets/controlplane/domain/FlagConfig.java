@@ -34,9 +34,9 @@ public class FlagConfig {
 
     @Id @UuidGenerator
     private UUID id;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Flag flag;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Environment environment;
     @Column(nullable = false)
     private boolean enabled;

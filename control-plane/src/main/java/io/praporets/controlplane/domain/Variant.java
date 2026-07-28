@@ -22,7 +22,7 @@ public class Variant {
 
     @Id @UuidGenerator
     private UUID id;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Flag flag;
     @Column(nullable = false, length = 64)
     private String key;

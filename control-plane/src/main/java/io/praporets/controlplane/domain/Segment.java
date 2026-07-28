@@ -25,7 +25,7 @@ public class Segment {
 
     @Id @UuidGenerator
     private UUID id;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     private Environment environment;
     @Column(nullable = false, length = 128)
     private String key;
