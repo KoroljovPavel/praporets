@@ -1,6 +1,7 @@
 package io.praporets.core.model;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Іменована група користувачів, визначена набором умов: «користувачі з UA
@@ -24,6 +25,10 @@ public record Segment(String key, List<Clause> clauses) {
      * @throws IllegalArgumentException якщо {@code key} blank
      */
     public Segment {
-        throw new UnsupportedOperationException("01c: implement me");
+        clauses = List.copyOf(clauses);
+        if (clauses.stream().anyMatch(Objects::isNull)) throw new NullPointerException("clauses must not contain null elements");
+
+        Objects.requireNonNull(key, "key");
+        if (key.isBlank()) throw new IllegalArgumentException("key must be non-blank");
     }
 }

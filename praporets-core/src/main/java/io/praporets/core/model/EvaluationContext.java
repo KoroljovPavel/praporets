@@ -1,6 +1,7 @@
 package io.praporets.core.model;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -28,7 +29,17 @@ public record EvaluationContext(String userKey, Map<String, String> attributes) 
      * @throws IllegalArgumentException якщо {@code userKey} blank
      */
     public EvaluationContext {
-        throw new UnsupportedOperationException("01c: implement me");
+        attributes = Map.copyOf(attributes);
+
+        Objects.requireNonNull(userKey, "userKey");
+
+        if (containsNullKeysOrValues(attributes)) throw new NullPointerException("attributes must not contain null keys or values");
+        if (userKey.isBlank()) throw new IllegalArgumentException("userKey must be non-blank");
+    }
+
+    private static boolean containsNullKeysOrValues(Map<?, ?> map) {
+        return map.entrySet().stream()
+            .anyMatch(entry -> entry.getKey() == null || entry.getValue() == null);
     }
 
     /**
@@ -43,6 +54,10 @@ public record EvaluationContext(String userKey, Map<String, String> attributes) 
      * @throws NullPointerException якщо {@code name} {@code null}
      */
     public Optional<String> attribute(String name) {
-        throw new UnsupportedOperationException("01c: implement me");
+        Objects.requireNonNull(name, "name");
+
+        if (name.equals(USER_KEY_ATTRIBUTE)) return Optional.of(userKey);
+
+        return Optional.ofNullable(attributes.get(name));
     }
 }

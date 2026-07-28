@@ -1,6 +1,7 @@
 package io.praporets.core.model;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Одна умова таргетингу: порівняння атрибута користувача зі списком значень.
@@ -32,6 +33,11 @@ public record Clause(String attribute, Operator operator, List<String> values, b
      * @throws IllegalArgumentException якщо {@code attribute} blank
      */
     public Clause {
-        throw new UnsupportedOperationException("01c: implement me");
+        values = List.copyOf(values);
+        if (values.stream().anyMatch(Objects::isNull)) throw new NullPointerException("values must not contain null elements");
+
+        Objects.requireNonNull(attribute, "attribute");
+        Objects.requireNonNull(operator, "operator");
+        if (attribute.isBlank()) throw new IllegalArgumentException("attribute must be non-blank");
     }
 }
