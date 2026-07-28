@@ -1,5 +1,7 @@
 package io.praporets.core.evaluation;
 
+import io.praporets.core.hash.MurmurHash3;
+import io.praporets.core.model.Bucket;
 import io.praporets.core.model.Rollout;
 
 /**
@@ -52,6 +54,16 @@ public final class Bucketer {
      * @return ключ варіанта одного з бакетів rollout
      */
     public static String variantKeyFor(Rollout rollout, String flagKey, String userKey) {
-        throw new UnsupportedOperationException("01b: implement me");
+        String input = flagKey + ":" + rollout.salt() + ":" + userKey;
+        long h = MurmurHash3.hash32(input, 0);
+        int point = (int) (h & 0x7FFF_FFFF) % TOTAL_WEIGHT;
+        int cumulative = 0;
+        for (Bucket bucket : rollout.buckets()) {
+            cumulative += bucket.weight();
+            if (point < cumulative) {
+                return bucket.variantKey();
+            }
+        }
+        return rollout.buckets().getLast().variantKey();
     }
 }
