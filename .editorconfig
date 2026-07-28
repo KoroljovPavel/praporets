@@ -1,0 +1,14 @@
+# Вказує, що це кореневий файл конфігурації EditorConfig
+root = true
+
+# Загальні правила для всіх файлів проекту
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Специфічні правила для Java-файлів
+[*.java]
+indent_style = space
+indent_size = 4

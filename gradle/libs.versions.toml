@@ -1,0 +1,25 @@
+[versions]
+# Версії платформ та додаткових бібліотек
+junitBom = "6.1.1"
+assertj = "3.27.7"
+jqwik = "1.10.1"
+
+[libraries]
+# 1. JUnit BOM (Платформа тестів - імпортується як BOM/platform)
+junit-bom = { group = "org.junit", name = "junit-bom", version.ref = "junitBom" }
+
+# 2. JUnit Jupiter (без версії — версія керується через junit-bom)
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
+
+# 3. JUnit Platform Launcher (без версії — керується BOM; обов'язково для testRuntimeOnly у Gradle 9)
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
+
+# 4. AssertJ (Fluent assertions)
+assertj = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }
+
+# 5. Jqwik (Property-based testing)
+jqwik = { group = "net.jqwik", name = "jqwik", version.ref = "jqwik" }
+
+[plugins]
+# Секція залишена порожньою, якщо плагіни зараз не потрібні,
+# або можна додати стандартні (наприклад, java/jvm за потреби)
