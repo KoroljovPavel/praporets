@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: praporets-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: praporets
+      POSTGRES_PASSWORD: praporets
+      POSTGRES_DB: praporets
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U praporets -d praporets"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    name: praporets_postgres_data
