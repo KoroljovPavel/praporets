@@ -1,5 +1,9 @@
 package io.praporets.controlplane.domain;
 
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,16 +24,28 @@ import java.util.UUID;
  *       (тест query-count на це покладається).</li>
  * </ul>
  */
+@Entity
+@Table(name = "flag")
 public class Flag {
 
+    @Id @UuidGenerator
     private UUID id;
+    @Column(unique = true, nullable = false, length = 128)
     private String key;
+    @Column(nullable = false, length = 256)
     private String name;
     private String description;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "value_type", nullable = false, length = 16)
     private ValueType valueType;
+    @Column(nullable = false)
     private boolean archived;
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+    @Version
     private long version;
+    @OneToMany(mappedBy = "flag", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Variant> variants = new ArrayList<>();
 
     protected Flag() {

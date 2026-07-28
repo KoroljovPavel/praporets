@@ -1,5 +1,12 @@
 package io.praporets.controlplane.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,12 +21,20 @@ import java.util.UUID;
  * <p>{@code @Version} тут НЕ потрібен: environment не редагується конкурентно
  * (revision — не version, це доменний лічильник змін конфігурації).
  */
+@Entity
+@Table(name = "environment")
 public class Environment {
 
+    @Id @UuidGenerator
     private UUID id;
+    @Column(unique = true, nullable = false, length = 64)
     private String key;
+    @Column(nullable = false, length = 128)
     private String name;
+    @Column(nullable = false, columnDefinition = "BIGINT DEFAULT 0")
     private long revision;
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     protected Environment() {

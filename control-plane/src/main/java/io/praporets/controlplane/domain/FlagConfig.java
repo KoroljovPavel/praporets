@@ -2,6 +2,13 @@ package io.praporets.controlplane.domain;
 
 import io.praporets.core.model.Rollout;
 import io.praporets.core.model.Rule;
+import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
+
+import java.sql.SQLType;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -21,17 +28,32 @@ import java.util.UUID;
  *   <li>{@code updatedAt} — {@code @UpdateTimestamp}.</li>
  * </ul>
  */
+@Entity
+@Table(name = "flag_config")
 public class FlagConfig {
 
+    @Id @UuidGenerator
     private UUID id;
+    @ManyToOne(fetch = FetchType.LAZY)
     private Flag flag;
+    @ManyToOne(fetch = FetchType.LAZY)
     private Environment environment;
+    @Column(nullable = false)
     private boolean enabled;
+    @Column(nullable = false, length = 64)
     private String defaultVariant;
+    @Column(nullable = false, length = 64)
     private String offVariant;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "JSONB DEFAULT '[]'")
     private List<Rule> rules = List.of();
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "JSONB")
     private Rollout rollout;
+    @Version
     private long version;
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     protected FlagConfig() {

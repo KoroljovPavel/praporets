@@ -1,5 +1,10 @@
 package io.praporets.controlplane.domain;
 
+import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
+
 import java.util.UUID;
 
 /**
@@ -11,11 +16,18 @@ import java.util.UUID;
  * як {@code String} + {@code @JdbcTypeCode(SqlTypes.JSON)} — тест
  * {@code jsonb_columns_are_real_jsonb_not_text} перевірить, що в БД справді jsonb.
  */
+@Entity
+@Table(name = "variant")
 public class Variant {
 
+    @Id @UuidGenerator
     private UUID id;
+    @ManyToOne(fetch = FetchType.LAZY)
     private Flag flag;
+    @Column(nullable = false, length = 64)
     private String key;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "JSONB")
     private String value;
 
     protected Variant() {

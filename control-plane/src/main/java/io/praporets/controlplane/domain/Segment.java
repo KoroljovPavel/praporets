@@ -1,6 +1,11 @@
 package io.praporets.controlplane.domain;
 
 import io.praporets.core.model.Clause;
+import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -14,12 +19,20 @@ import java.util.UUID;
  * JSON-форма умов. Десеріалізація йде через канонічний конструктор, тож
  * валідації ядра спрацюють і при читанні з БД. {@code version} — {@code @Version} (P3).
  */
+@Entity
+@Table(name = "segment")
 public class Segment {
 
+    @Id @UuidGenerator
     private UUID id;
+    @ManyToOne(fetch = FetchType.LAZY)
     private Environment environment;
+    @Column(nullable = false, length = 128)
     private String key;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "JSONB")
     private List<Clause> conditions;
+    @Version
     private long version;
 
     protected Segment() {
