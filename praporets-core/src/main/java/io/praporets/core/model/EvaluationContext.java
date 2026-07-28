@@ -33,13 +33,7 @@ public record EvaluationContext(String userKey, Map<String, String> attributes) 
 
         Objects.requireNonNull(userKey, "userKey");
 
-        if (containsNullKeysOrValues(attributes)) throw new NullPointerException("attributes must not contain null keys or values");
         if (userKey.isBlank()) throw new IllegalArgumentException("userKey must be non-blank");
-    }
-
-    private static boolean containsNullKeysOrValues(Map<?, ?> map) {
-        return map.entrySet().stream()
-            .anyMatch(entry -> entry.getKey() == null || entry.getValue() == null);
     }
 
     /**

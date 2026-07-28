@@ -34,7 +34,6 @@ public record Clause(String attribute, Operator operator, List<String> values, b
      */
     public Clause {
         values = List.copyOf(values);
-        if (values.stream().anyMatch(Objects::isNull)) throw new NullPointerException("values must not contain null elements");
 
         Objects.requireNonNull(attribute, "attribute");
         Objects.requireNonNull(operator, "operator");

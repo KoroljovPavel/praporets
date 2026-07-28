@@ -21,18 +21,20 @@ import java.util.Set;
  */
 public sealed interface ClauseMatcher {
 
+    sealed interface OfAttribute extends ClauseMatcher {}
+
     /**
      * Точний збіг з одним із значень (оператор {@code IN}).
      *
      * @param values значення; {@code Set} — пошук O(1) і дедуплікація
      */
-    record In(Set<String> values) implements ClauseMatcher {
+    record In(Set<String> values) implements OfAttribute {
     }
 
     /**
      * Рядкові операції {@code STARTS_WITH} / {@code ENDS_WITH} / {@code CONTAINS}.
      */
-    record Text(TextOp op, List<String> values) implements ClauseMatcher {
+    record Text(TextOp op, List<String> values) implements OfAttribute {
     }
 
     /**
@@ -40,7 +42,7 @@ public sealed interface ClauseMatcher {
      *
      * @param bounds межі, вже розпарсені; невалідні значення відкинуті при компіляції (S4)
      */
-    record Numeric(NumericOp op, List<BigDecimal> bounds) implements ClauseMatcher {
+    record Numeric(NumericOp op, List<BigDecimal> bounds) implements OfAttribute {
     }
 
     /**
@@ -48,7 +50,7 @@ public sealed interface ClauseMatcher {
      *
      * @param minimums мінімальні версії; невалідні відкинуті при компіляції (S4)
      */
-    record SemverAtLeast(List<Semver> minimums) implements ClauseMatcher {
+    record SemverAtLeast(List<Semver> minimums) implements OfAttribute {
     }
 
     /**
@@ -83,8 +85,8 @@ public sealed interface ClauseMatcher {
             case STARTS_WITH, ENDS_WITH, CONTAINS -> new Text(TextOp.valueOf(clause.operator().name()), List.copyOf(clause.values()));
             case GREATER_THAN, LESS_THAN -> new Numeric(NumericOp.valueOf(clause.operator().name()),
                 clause.values().stream()
-                    .filter(n -> n.matches("-?\\d+(\\.\\d+)?"))
-                    .map(BigDecimal::new).toList());
+                    .flatMap(v -> Numbers.parse(v).stream())
+                    .toList());
             case SEMVER_GREATER_OR_EQUAL -> new SemverAtLeast(clause.values().stream().flatMap(v -> Semver.parse(v).stream()).toList());
             case IN_SEGMENT -> new InSegment(Set.copyOf(clause.values()));
         };

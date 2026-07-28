@@ -26,7 +26,6 @@ public record Segment(String key, List<Clause> clauses) {
      */
     public Segment {
         clauses = List.copyOf(clauses);
-        if (clauses.stream().anyMatch(Objects::isNull)) throw new NullPointerException("clauses must not contain null elements");
 
         Objects.requireNonNull(key, "key");
         if (key.isBlank()) throw new IllegalArgumentException("key must be non-blank");

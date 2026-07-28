@@ -4,7 +4,6 @@ import io.praporets.core.model.Clause;
 import io.praporets.core.model.EvaluationContext;
 import io.praporets.core.model.Segment;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,19 +44,26 @@ public final class ClauseEvaluator {
     public static boolean matches(Clause clause, EvaluationContext context, Map<String, Segment> segments) {
         Objects.requireNonNull(clause, "clause");
         Objects.requireNonNull(context, "context");
+        Objects.requireNonNull(segments, "segments");
 
-        String attribute = context.attribute(clause.attribute()).orElse(null);
         ClauseMatcher matcher = ClauseMatcher.compile(clause);
 
         boolean result = switch (matcher) {
-            case ClauseMatcher.In inMatcher                -> attribute != null && inMatcher(inMatcher, attribute);
-            case ClauseMatcher.Text textMatcher            -> attribute != null && textMatcher(textMatcher, attribute);
-            case ClauseMatcher.Numeric numericMatcher      -> attribute != null && numericMatcher(numericMatcher, attribute);
-            case ClauseMatcher.SemverAtLeast semverMatcher -> attribute != null && semverMatcher(semverMatcher, attribute);
+            case ClauseMatcher.OfAttribute ofAttributeMatcher -> context.attribute(clause.attribute())
+                .map(value -> matchesValue(ofAttributeMatcher, value)).orElse(false);
             case ClauseMatcher.InSegment inSegmentMatcher  -> inSegmentMatcher(inSegmentMatcher, context, segments);
         };
 
         return clause.negate() != result;
+    }
+
+    private static boolean matchesValue(ClauseMatcher.OfAttribute matcher, String value) {
+        return switch (matcher) {
+            case ClauseMatcher.In inMatcher                -> inMatcher(inMatcher, value);
+            case ClauseMatcher.Text textMatcher            -> textMatcher(textMatcher, value);
+            case ClauseMatcher.Numeric numericMatcher      -> numericMatcher(numericMatcher, value);
+            case ClauseMatcher.SemverAtLeast semverMatcher -> semverMatcher(semverMatcher, value);
+        };
     }
 
     private static boolean inMatcher(ClauseMatcher.In inMatcher, String attribute) {
@@ -73,15 +79,13 @@ public final class ClauseEvaluator {
     }
 
     private static boolean numericMatcher(ClauseMatcher.Numeric numericMatcher, String attribute) {
-        try {
-            BigDecimal value = new BigDecimal(attribute);
-            return switch (numericMatcher.op()) {
-                case GREATER_THAN -> numericMatcher.bounds().stream().anyMatch(bound -> value.compareTo(bound) > 0);
-                case LESS_THAN    -> numericMatcher.bounds().stream().anyMatch(bound -> value.compareTo(bound) < 0);
-            };
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
+        return Numbers.parse(attribute)
+            .map(value ->
+                switch (numericMatcher.op()) {
+                    case GREATER_THAN -> numericMatcher.bounds().stream().anyMatch(bound -> value.compareTo(bound) > 0);
+                    case LESS_THAN -> numericMatcher.bounds().stream().anyMatch(bound -> value.compareTo(bound) < 0);
+                })
+            .orElse(false);
     }
 
     private static boolean semverMatcher(ClauseMatcher.SemverAtLeast semverMatcher, String attribute) {
