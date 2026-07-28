@@ -90,8 +90,16 @@ public class FlagConfig {
         return defaultVariant;
     }
 
+    public void setDefaultVariant(String defaultVariant) {
+        this.defaultVariant = defaultVariant;
+    }
+
     public String getOffVariant() {
         return offVariant;
+    }
+
+    public void setOffVariant(String offVariant) {
+        this.offVariant = offVariant;
     }
 
     public List<Rule> getRules() {

@@ -1,8 +1,6 @@
 package io.praporets.controlplane.service;
 
-import io.praporets.controlplane.domain.AuditLogEntry;
-import io.praporets.controlplane.domain.AuditLogRepository;
-import io.praporets.controlplane.domain.ChangeType;
+import io.praporets.controlplane.domain.*;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -33,9 +31,14 @@ import java.util.UUID;
 public class RevisionRecorder {
 
     private final AuditLogRepository auditLogRepository;
+    private final RevisionLogRepository revisionLogRepository;
+    private final EnvironmentRepository environmentRepository;
 
-    public RevisionRecorder(AuditLogRepository auditLogRepository) {
+    public RevisionRecorder(AuditLogRepository auditLogRepository, RevisionLogRepository revisionLogRepository,
+                            EnvironmentRepository environmentRepository) {
         this.auditLogRepository = auditLogRepository;
+        this.revisionLogRepository = revisionLogRepository;
+        this.environmentRepository = environmentRepository;
     }
 
     /**
@@ -49,7 +52,14 @@ public class RevisionRecorder {
      * @throws NotFoundException якщо середовища немає
      */
     public long recordChange(String environmentKey, ChangeType changeType, JsonNode payload) {
-        throw new UnsupportedOperationException("не реалізовано");
+        Environment environment = environmentRepository.findWithLockByKey(environmentKey)
+            .orElseThrow(() -> new NotFoundException("Entity with key [" + environmentKey + "] not found"));
+
+        long revision = environment.incrementRevision();
+
+        revisionLogRepository.save(new RevisionLogEntry(environment, revision, changeType, payload));
+
+        return revision;
     }
 
     /**

@@ -6,7 +6,6 @@ import io.praporets.controlplane.api.dto.RevisionResponse;
 import io.praporets.controlplane.domain.Environment;
 import io.praporets.controlplane.domain.EnvironmentRepository;
 import io.praporets.controlplane.domain.RevisionLogRepository;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Sort;

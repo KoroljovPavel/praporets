@@ -64,4 +64,8 @@ public class Environment {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    public long incrementRevision() {
+        return ++revision;
+    }
 }

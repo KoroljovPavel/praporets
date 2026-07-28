@@ -2,6 +2,10 @@ package io.praporets.controlplane.api;
 
 import io.praporets.controlplane.api.dto.AuditEntryResponse;
 import io.praporets.controlplane.service.AuditQueryService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +15,8 @@ import java.util.UUID;
  *
  * <p><b>Реалізація (твоя робота):</b> {@code @RestController} + анотації.
  */
+@RestController
+@RequestMapping("/api/v1/audit")
 public class AuditController {
 
     private final AuditQueryService audit;
@@ -20,7 +26,8 @@ public class AuditController {
     }
 
     /** {@code GET ?entityId=&limit=} → 200, новіші перші. */
-    public List<AuditEntryResponse> byEntity(UUID entityId, int limit) {
-        throw new UnsupportedOperationException("не реалізовано");
+    @GetMapping
+    public List<AuditEntryResponse> byEntity(@RequestParam UUID entityId, @RequestParam(defaultValue = "50") int limit) {
+        return audit.byEntityId(entityId, limit);
     }
 }

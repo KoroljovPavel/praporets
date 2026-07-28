@@ -16,8 +16,10 @@ import io.praporets.controlplane.domain.EnvironmentRepository;
 import io.praporets.controlplane.domain.RevisionLogEntry;
 import io.praporets.controlplane.domain.RevisionLogRepository;
 import io.praporets.controlplane.domain.ValueType;
+import io.praporets.core.model.Bucket;
 import io.praporets.core.model.Clause;
 import io.praporets.core.model.Operator;
+import io.praporets.core.model.Rollout;
 import io.praporets.core.model.Rule;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -162,6 +164,27 @@ class RevisionAndAuditFlowTest extends AbstractIntegrationTest {
                 List.of(new VariantDto("on", StringNode.valueOf("yes")))), ACTOR))
                 .isInstanceOf(DomainValidationException.class)
                 .hasMessageContaining("on");
+    }
+
+    @Test
+    void rule_and_rollout_variant_references_must_exist() {
+        createEnvironment();
+        createBooleanFlag();
+        var clause = new Clause("country", Operator.IN, List.of("UA"), false);
+
+        // правило вказує на неіснуючий варіант
+        var ghostRule = new Rule("r1", List.of(clause), "ghost", null);
+        assertThatThrownBy(() -> configs.upsert("dev", "checkout.new-flow", null,
+                config(List.of(ghostRule)), ACTOR))
+                .isInstanceOf(DomainValidationException.class)
+                .hasMessageContaining("ghost");
+
+        // бакет rollout-а вказує на неіснуючий варіант
+        var ghostRollout = new Rollout("salt-1", List.of(new Bucket("ghost", 100_000)));
+        assertThatThrownBy(() -> configs.upsert("dev", "checkout.new-flow", null,
+                new UpsertFlagConfigRequest(true, "on", "off", List.of(), ghostRollout), ACTOR))
+                .isInstanceOf(DomainValidationException.class)
+                .hasMessageContaining("ghost");
     }
 
     @Test

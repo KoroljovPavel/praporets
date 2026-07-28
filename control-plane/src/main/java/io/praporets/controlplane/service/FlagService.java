@@ -112,7 +112,7 @@ public class FlagService {
         flagRepository.flush();
 
         FlagResponse response = toResponse(flag);
-        revisionRecorder.audit(actor, "PATCH", "FLAG", flag.getId(), jsonMapper.valueToTree(prevResponse), jsonMapper.valueToTree(response));
+        revisionRecorder.audit(actor, "UPDATE", "FLAG", flag.getId(), jsonMapper.valueToTree(prevResponse), jsonMapper.valueToTree(response));
 
         return response;
     }
