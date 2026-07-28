@@ -12,6 +12,7 @@ import net.jqwik.api.constraints.StringLength;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Властивості розподілу зі спеки, розділ 7.2. Числові межі в тестах рівномірності
@@ -78,10 +79,10 @@ class BucketerTest {
 
         var before = new Rollout("property-salt", List.of(
                 new Bucket("treatment", smallerWeight),
-                new Bucket("control", Bucketer.TOTAL_WEIGHT - smallerWeight)));
+                new Bucket("control", Rollout.TOTAL_WEIGHT - smallerWeight)));
         var after = new Rollout("property-salt", List.of(
                 new Bucket("treatment", largerWeight),
-                new Bucket("control", Bucketer.TOTAL_WEIGHT - largerWeight)));
+                new Bucket("control", Rollout.TOTAL_WEIGHT - largerWeight)));
 
         if (Bucketer.variantKeyFor(before, "property.flag", userKey).equals("treatment")) {
             assertThat(Bucketer.variantKeyFor(after, "property.flag", userKey))
@@ -104,6 +105,20 @@ class BucketerTest {
 
         // якби flagKey не входив у хеш, differ був би 0; фактичне значення 172
         assertThat(differ).isGreaterThan(50);
+    }
+
+    @Test
+    void null_arguments_yield_npe_instead_of_silent_null_string_bucketing() {
+        // без явних null-checks конкатенація дала б рядок "null:..." і мовчки
+        // поклала користувача не в той бакет — швидкий NPE кращий за тихо неправильний варіант
+        var rollout = tenPercentTreatment("npe-salt");
+
+        assertThatThrownBy(() -> Bucketer.variantKeyFor(null, "flag.a", "user-1"))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> Bucketer.variantKeyFor(rollout, null, "user-1"))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> Bucketer.variantKeyFor(rollout, "flag.a", null))
+                .isInstanceOf(NullPointerException.class);
     }
 
     @Test

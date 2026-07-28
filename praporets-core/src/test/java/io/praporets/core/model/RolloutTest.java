@@ -9,6 +9,36 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RolloutTest {
 
+    // Контракт виключень: NPE для null-аргументів, IAE для неправильних значень.
+
+    @Test
+    void null_salt_yields_npe() {
+        assertThatThrownBy(() -> new Rollout(null, List.of(new Bucket("on", 100_000))))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void null_bucket_list_yields_npe() {
+        assertThatThrownBy(() -> new Rollout("salt", null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void null_bucket_element_yields_npe() {
+        var buckets = new ArrayList<Bucket>();
+        buckets.add(new Bucket("on", 100_000));
+        buckets.add(null);
+
+        assertThatThrownBy(() -> new Rollout("salt", buckets))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void null_variant_key_yields_npe() {
+        assertThatThrownBy(() -> new Bucket(null, 100_000))
+                .isInstanceOf(NullPointerException.class);
+    }
+
     @Test
     void rejects_blank_salt() {
         assertThatThrownBy(() -> new Rollout("  ", List.of(new Bucket("on", 100_000))))
