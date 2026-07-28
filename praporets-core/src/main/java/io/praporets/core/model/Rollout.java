@@ -3,6 +3,7 @@ package io.praporets.core.model;
 import io.praporets.core.evaluation.Bucketer;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Відсотковий розподіл трафіку між варіантами флага.
@@ -22,26 +23,27 @@ import java.util.List;
  *       переданого в конструктор, не впливає на record, а {@link #buckets()}
  *       повертає незмінний список.</li>
  * </ul>
- *
- * @param salt    сіль хешування — стабілізує розподіл незалежно від назви флага
- * @param buckets впорядковані частки розподілу, сума ваг = {@code 100_000}
- * @throws IllegalArgumentException якщо порушено інваріант значень
- * @throws NullPointerException     якщо {@code buckets} або його елемент {@code null}
  */
 public record Rollout(String salt, List<Bucket> buckets) {
+
+    /** Сума ваг валідного rollout: 100% у стотисячних. */
+    public static final int TOTAL_WEIGHT = 100_000;
+
+    /**
+     * @param salt сіль хешування — стабілізує розподіл незалежно від назви флага
+     * @param buckets впорядковані частки розподілу, сума ваг = {@code 100_000}
+     * @throws IllegalArgumentException якщо порушено інваріант значень
+     * @throws NullPointerException     якщо {@code buckets} або його елемент {@code null}
+     */
     public Rollout {
-        if (salt == null || salt.trim().isBlank()) {
-            throw new IllegalArgumentException("salt must be non-blank");
-        }
-        if (buckets == null || buckets.isEmpty()) {
-            throw new IllegalArgumentException("buckets must be non-empty");
-        }
+        Objects.requireNonNull(salt, "salt");
+        if (salt.isBlank()) throw new IllegalArgumentException("salt must be non-blank");
+
+        buckets = List.copyOf(Objects.requireNonNull(buckets, "buckets"));
+        if (buckets.isEmpty()) throw new IllegalArgumentException("buckets must be non-empty");
 
         int totalBucketWeight = buckets.stream().mapToInt(Bucket::weight).sum();
-        if (totalBucketWeight != Bucketer.TOTAL_WEIGHT) {
-            throw new IllegalArgumentException("total weight must be " + Bucketer.TOTAL_WEIGHT);
-        }
-
-        buckets = List.copyOf(buckets);
+        if (totalBucketWeight != TOTAL_WEIGHT)
+            throw new IllegalArgumentException("total weight must be " + TOTAL_WEIGHT);
     }
 }

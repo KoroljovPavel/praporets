@@ -1,5 +1,7 @@
 package io.praporets.core.model;
 
+import java.util.Objects;
+
 /**
  * Одна частка відсоткового розподілу (rollout): скільки трафіку отримує варіант.
  *
@@ -13,19 +15,21 @@ package io.praporets.core.model;
  *       вона тримає варіант у списку зі стабільною позицією, що важливо для
  *       монотонності при подальшому збільшенні ваги.</li>
  * </ul>
- *
- * @param variantKey ключ варіанта, на який вказує ця частка (напр. {@code "treatment-a"})
- * @param weight     вага у стотисячних, {@code [0, 100_000]}
- * @throws IllegalArgumentException якщо будь-який інваріант порушено
  */
 public record Bucket(String variantKey, int weight) {
 
+    /**
+     * @param variantKey ключ варіанта, на який вказує ця частка (напр. {@code "treatment-a"})
+     * @param weight     вага у стотисячних, {@code [0, 100_000]}
+     * @throws IllegalArgumentException якщо будь-який інваріант порушено
+     * @throws NullPointerException якщо {@code variantKey} null
+     */
     public Bucket {
-        if (variantKey == null || variantKey.trim().isBlank()) {
+        Objects.requireNonNull(variantKey, "variantKey");
+        if (variantKey.isBlank())
             throw new IllegalArgumentException("variantKey must be non-blank");
-        }
-        if (weight < 0 || weight > 100_000) {
-            throw new IllegalArgumentException("weight must be in [0, 100_000]");
-        }
+
+        if (weight < 0 || weight > Rollout.TOTAL_WEIGHT)
+            throw new IllegalArgumentException("weight must be in [0, " + Rollout.TOTAL_WEIGHT + "]");
     }
 }

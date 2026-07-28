@@ -4,6 +4,8 @@ import io.praporets.core.hash.MurmurHash3;
 import io.praporets.core.model.Bucket;
 import io.praporets.core.model.Rollout;
 
+import java.util.Objects;
+
 /**
  * Детермінований розподіл користувачів по бакетах percentage rollout.
  *
@@ -39,9 +41,6 @@ import io.praporets.core.model.Rollout;
  */
 public final class Bucketer {
 
-    /** Сума ваг валідного rollout: 100% у стотисячних. */
-    public static final int TOTAL_WEIGHT = 100_000;
-
     private Bucketer() {
     }
 
@@ -54,9 +53,13 @@ public final class Bucketer {
      * @return ключ варіанта одного з бакетів rollout
      */
     public static String variantKeyFor(Rollout rollout, String flagKey, String userKey) {
+        Objects.requireNonNull(rollout, "rollout");
+        Objects.requireNonNull(flagKey, "flagKey");
+        Objects.requireNonNull(userKey, "userKey");
+
         String input = flagKey + ":" + rollout.salt() + ":" + userKey;
-        long h = MurmurHash3.hash32(input, 0);
-        int point = (int) (h & 0x7FFF_FFFF) % TOTAL_WEIGHT;
+        int h = MurmurHash3.hash32(input, 0);
+        int point = (h & 0x7FFF_FFFF) % Rollout.TOTAL_WEIGHT;
         int cumulative = 0;
         for (Bucket bucket : rollout.buckets()) {
             cumulative += bucket.weight();
