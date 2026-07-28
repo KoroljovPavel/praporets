@@ -2,6 +2,8 @@ package io.praporets.controlplane.domain;
 
 import java.util.Optional;
 import java.util.UUID;
+
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,5 +20,6 @@ public interface FlagRepository extends JpaRepository<Flag, UUID> {
      * зробити один запит: {@code join fetch} у запиті або {@code @EntityGraph}.
      */
     @Query("select f from Flag f where f.key = :key")
+    @EntityGraph(attributePaths = "variants")
     Optional<Flag> findByKeyWithVariants(@Param("key") String key);
 }
