@@ -1,5 +1,7 @@
 package io.praporets.core.hash;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * MurmurHash3, варіант x86_32 — стабільний некриптографічний хеш.
  *
@@ -25,6 +27,9 @@ public final class MurmurHash3 {
     private MurmurHash3() {
     }
 
+    private static final int C1 = 0xcc9e2d51;
+    private static final int C2 = 0x1b873593;
+
     /**
      * Хеш масиву байтів.
      *
@@ -33,7 +38,56 @@ public final class MurmurHash3 {
      * @return 32-бітний хеш (знаковий int — інтерпретація unsigned на совісті викликача)
      */
     public static int hash32(byte[] data, int seed) {
-        throw new UnsupportedOperationException("01b: implement me");
+        if (data == null) {
+            throw new NullPointerException("data must not be null");
+        }
+
+        int length = data.length;
+
+        int h1 = seed;
+        int nblocks = length / 4;
+
+        for (int i = 0; i < nblocks; i++) {
+            int index = i * 4;
+            int k1 = (data[index] & 0xff)
+                | ((data[index + 1] & 0xff) << 8)
+                | ((data[index + 2] & 0xff) << 16)
+                | (data[index + 3] << 24);
+
+            k1 *= C1;
+            k1 = Integer.rotateLeft(k1, 15);
+            k1 *= C2;
+
+            h1 ^= k1;
+            h1 = Integer.rotateLeft(h1, 13);
+            h1 = h1 * 5 + 0xe6546b64;
+        }
+
+        int k1 = 0;
+        int tailIndex = nblocks * 4;
+
+        switch (length & 3) {
+            case 3:
+                k1 ^= (data[tailIndex + 2] & 0xff) << 16;
+            case 2:
+                k1 ^= (data[tailIndex + 1] & 0xff) << 8;
+            case 1:
+                k1 ^= (data[tailIndex] & 0xff);
+                k1 *= C1;
+                k1 = Integer.rotateLeft(k1, 15);
+                k1 *= C2;
+                h1 ^= k1;
+        }
+
+        h1 ^= length;
+
+        h1 ^= h1 >>> 16;
+        h1 *= 0x85ebca6b;
+        h1 ^= h1 >>> 13;
+        h1 *= 0xc2b2ae35;
+        h1 ^= h1 >>> 16;
+
+        return h1;
     }
 
     /**
@@ -45,6 +99,6 @@ public final class MurmurHash3 {
      * @return {@code hash32(text.getBytes(UTF_8), seed)}
      */
     public static int hash32(String text, int seed) {
-        throw new UnsupportedOperationException("01b: implement me");
+        return hash32(text.getBytes(StandardCharsets.UTF_8), seed);
     }
 }
