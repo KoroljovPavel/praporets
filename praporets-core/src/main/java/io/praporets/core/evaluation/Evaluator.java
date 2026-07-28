@@ -1,8 +1,10 @@
 package io.praporets.core.evaluation;
 
-import io.praporets.core.model.EnvironmentConfig;
-import io.praporets.core.model.EvaluationContext;
+import io.praporets.core.model.*;
+
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Головний алгоритм обчислення флага (спека 7.1). Чиста тотальна функція:
@@ -44,7 +46,42 @@ public final class Evaluator {
      * @throws NullPointerException якщо будь-який аргумент {@code null}
      */
     public static EvaluationResult evaluate(EnvironmentConfig config, String flagKey, EvaluationContext context) {
-        throw new UnsupportedOperationException("01d: implement me");
+        Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(flagKey, "flagKey");
+        Objects.requireNonNull(context, "context");
+
+        FlagDefinition flag = config.flags().get(flagKey);
+
+        if (flag == null) return new EvaluationResult(flagKey, Reason.FLAG_NOT_FOUND, null, null, null);
+        if (!flag.enabled()) {
+            return new EvaluationResult(flagKey, Reason.FLAG_DISABLED, flag.offVariant(), extractJsonValue(flag, flag.offVariant()), null);
+        }
+
+        for (Rule rule : flag.rules()) {
+            if (ClauseEvaluator.matchesAll(rule.clauses(), context, config.segments())) {
+                if (rule.rollout() != null) {
+                    String variantKey = Bucketer.variantKeyFor(rule.rollout(), flagKey, context.userKey());
+                    return new EvaluationResult(flagKey, Reason.ROLLOUT, variantKey, extractJsonValue(flag, variantKey), rule.id());
+                } else {
+                    return new EvaluationResult(flagKey, Reason.RULE_MATCH, rule.variantKey(), extractJsonValue(flag, rule.variantKey()), rule.id());
+                }
+            }
+        }
+
+        if (flag.rollout() != null) {
+            String variantKey = Bucketer.variantKeyFor(flag.rollout(), flagKey, context.userKey());
+            return new EvaluationResult(flagKey, Reason.ROLLOUT, variantKey, extractJsonValue(flag, variantKey), null);
+        }
+
+        return new EvaluationResult(flagKey, Reason.DEFAULT, flag.defaultVariant(), extractJsonValue(flag, flag.defaultVariant()), null);
+    }
+
+    private static String extractJsonValue(FlagDefinition flag, String variantKey) {
+        return flag.variants().stream()
+            .filter(v -> v.key().equals(variantKey))
+            .map(Variant::jsonValue)
+            .findFirst()
+            .orElse(null);
     }
 
     /**
@@ -55,6 +92,11 @@ public final class Evaluator {
      * @throws NullPointerException якщо будь-який аргумент {@code null}
      */
     public static List<EvaluationResult> evaluateAll(EnvironmentConfig config, EvaluationContext context) {
-        throw new UnsupportedOperationException("01d: implement me");
+        Objects.requireNonNull(config, "config");
+        Objects.requireNonNull(context, "context");
+        return config.flags().values().stream()
+            .map(flag -> evaluate(config, flag.key(), context))
+            .sorted(Comparator.comparing(EvaluationResult::flagKey))
+            .toList();
     }
 }
