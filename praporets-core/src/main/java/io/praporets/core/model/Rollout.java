@@ -1,5 +1,7 @@
 package io.praporets.core.model;
 
+import io.praporets.core.evaluation.Bucketer;
+
 import java.util.List;
 
 /**
@@ -27,5 +29,19 @@ import java.util.List;
  * @throws NullPointerException     якщо {@code buckets} або його елемент {@code null}
  */
 public record Rollout(String salt, List<Bucket> buckets) {
-    // TODO(01b): компактний конструктор — валідація + List.copyOf
+    public Rollout {
+        if (salt == null || salt.trim().isBlank()) {
+            throw new IllegalArgumentException("salt must be non-blank");
+        }
+        if (buckets == null || buckets.isEmpty()) {
+            throw new IllegalArgumentException("buckets must be non-empty");
+        }
+
+        int totalBucketWeight = buckets.stream().mapToInt(Bucket::weight).sum();
+        if (totalBucketWeight != Bucketer.TOTAL_WEIGHT) {
+            throw new IllegalArgumentException("total weight must be " + Bucketer.TOTAL_WEIGHT);
+        }
+
+        buckets = List.copyOf(buckets);
+    }
 }

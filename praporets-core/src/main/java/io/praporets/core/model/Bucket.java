@@ -19,5 +19,13 @@ package io.praporets.core.model;
  * @throws IllegalArgumentException якщо будь-який інваріант порушено
  */
 public record Bucket(String variantKey, int weight) {
-    // TODO(01b): компактний конструктор з валідацією інваріантів
+
+    public Bucket {
+        if (variantKey == null || variantKey.trim().isBlank()) {
+            throw new IllegalArgumentException("variantKey must be non-blank");
+        }
+        if (weight < 0 || weight > 100_000) {
+            throw new IllegalArgumentException("weight must be in [0, 100_000]");
+        }
+    }
 }
