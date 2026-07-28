@@ -3,7 +3,10 @@ package io.praporets.controlplane.api;
 import io.praporets.controlplane.api.dto.CreateEnvironmentRequest;
 import io.praporets.controlplane.api.dto.EnvironmentResponse;
 import io.praporets.controlplane.api.dto.RevisionResponse;
+import io.praporets.controlplane.api.dto.RollbackRequest;
+import io.praporets.controlplane.api.dto.RollbackResponse;
 import io.praporets.controlplane.service.EnvironmentService;
+import io.praporets.controlplane.service.RollbackService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +27,11 @@ import java.util.List;
 public class EnvironmentController {
 
     private final EnvironmentService environments;
+    private final RollbackService rollbackService;
 
-    public EnvironmentController(EnvironmentService environments) {
+    public EnvironmentController(EnvironmentService environments, RollbackService rollbackService) {
         this.environments = environments;
+        this.rollbackService = rollbackService;
     }
 
     /** {@code GET} → 200. */
@@ -47,5 +52,17 @@ public class EnvironmentController {
     @GetMapping("/{environmentKey}/revisions")
     public List<RevisionResponse> revisions(@PathVariable String environmentKey, @RequestParam(defaultValue = "50") int limit) {
         return environments.revisions(environmentKey, limit);
+    }
+
+    /**
+     * {@code POST /{env}/rollback} (CP-06) → 200 | 404 (немає середовища) |
+     * 400 ({@code toRevision} поза діапазоном, H6). Мутація → actor з X-Actor
+     * (G7), як у create.
+     */
+    @PostMapping("/{environmentKey}/rollback")
+    public RollbackResponse rollback(@PathVariable String environmentKey,
+                                     @RequestBody @Valid RollbackRequest request,
+                                     @RequestHeader(name = "X-Actor", defaultValue = "anonymous") String actor) {
+        throw new UnsupportedOperationException("01h: твоя реалізація");
     }
 }
