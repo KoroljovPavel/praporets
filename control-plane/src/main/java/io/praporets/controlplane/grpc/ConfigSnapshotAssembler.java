@@ -1,11 +1,13 @@
 package io.praporets.controlplane.grpc;
 
-import io.praporets.controlplane.domain.Environment;
-import io.praporets.controlplane.domain.FlagConfigRepository;
-import io.praporets.controlplane.domain.SegmentRepository;
+import io.praporets.controlplane.domain.*;
 import io.praporets.grpc.config.v1.ConfigSnapshot;
+import io.praporets.grpc.config.v1.FlagDefinition;
+import io.praporets.grpc.config.v1.SegmentDefinition;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 /**
  * Повний зліпок середовища для {@code GetSnapshot} (E-01: edge вантажить його
@@ -30,20 +32,32 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class ConfigSnapshotAssembler {
 
-    private final ConfigProtoMapper mapper;
+    private final ConfigProtoMapper configProtoMapper;
     private final SegmentRepository segmentRepository;
     private final FlagConfigRepository flagConfigRepository;
 
-    public ConfigSnapshotAssembler(ConfigProtoMapper mapper,
+    public ConfigSnapshotAssembler(ConfigProtoMapper configProtoMapper,
                                    SegmentRepository segmentRepository,
                                    FlagConfigRepository flagConfigRepository) {
-        this.mapper = mapper;
+        this.configProtoMapper = configProtoMapper;
         this.segmentRepository = segmentRepository;
         this.flagConfigRepository = flagConfigRepository;
     }
 
     @Transactional(readOnly = true)
     public ConfigSnapshot assemble(Environment environment) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+
+        List<FlagConfig> flagConfig = flagConfigRepository.findAllByEnvironmentKey(environment.getKey());
+        List<Segment> segments = segmentRepository.findAllByEnvironmentKey(environment.getKey());
+
+        List<FlagDefinition> flagDefinition = flagConfig.stream().map(configProtoMapper::toFlag).toList();
+        List<SegmentDefinition> segmentDefinitions = segments.stream().map(configProtoMapper::toSegment).toList();
+
+        return ConfigSnapshot.newBuilder()
+                .setEnvironmentKey(environment.getKey())
+                .setRevision(environment.getRevision())
+                .addAllFlags(flagDefinition)
+                .addAllSegments(segmentDefinitions)
+                .build();
     }
 }

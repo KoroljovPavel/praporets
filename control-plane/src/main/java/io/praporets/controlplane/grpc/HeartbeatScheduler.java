@@ -1,6 +1,8 @@
 package io.praporets.controlplane.grpc;
 
 import io.praporets.controlplane.domain.EnvironmentRepository;
+import io.praporets.grpc.config.v1.ConfigUpdate;
+import io.praporets.grpc.config.v1.Heartbeat;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -32,16 +34,25 @@ import org.springframework.stereotype.Component;
 @Component
 public class HeartbeatScheduler {
 
-    private final ConfigStreamRegistry registry;
+    private final ConfigStreamRegistry configStreamRegistry;
     private final EnvironmentRepository environmentRepository;
 
-    public HeartbeatScheduler(ConfigStreamRegistry registry, EnvironmentRepository environmentRepository) {
-        this.registry = registry;
+    public HeartbeatScheduler(ConfigStreamRegistry configStreamRegistry, EnvironmentRepository environmentRepository) {
+        this.configStreamRegistry = configStreamRegistry;
         this.environmentRepository = environmentRepository;
     }
 
     @Scheduled(fixedRateString = "${praporets.grpc.heartbeat-interval:15s}")
     public void beat() {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        for (String environmentKey : configStreamRegistry.activeEnvironments()) {
+            environmentRepository.findByKey(environmentKey).ifPresent(environment -> {
+                configStreamRegistry.publish(environmentKey, ConfigUpdate.newBuilder()
+                    .setRevision(environment.getRevision())
+                    .setHeartbeat(Heartbeat.newBuilder()
+                        .setServerTimeMillis(System.currentTimeMillis())
+                        .build())
+                    .build());
+            });
+        }
     }
 }

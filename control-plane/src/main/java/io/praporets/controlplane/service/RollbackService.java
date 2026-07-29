@@ -1,6 +1,7 @@
 package io.praporets.controlplane.service;
 
 import io.praporets.controlplane.api.dto.*;
+import io.praporets.controlplane.common.GroupingHelper;
 import io.praporets.controlplane.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -92,18 +93,18 @@ public class RollbackService {
 
         JsonNode prevRevision = jsonMapper.createObjectNode().put("revision", environment.getRevision());
 
-        Map<GroupingKey, RevisionLogEntry> revisions = revisionLogRepository.findByEnvironmentKeyAndRevisionLessThanEqualOrderByRevisionDesc(environmentKey, toRevision)
+        Map<GroupingHelper.GroupingKey, RevisionLogEntry> revisions = revisionLogRepository.findByEnvironmentKeyAndRevisionLessThanEqualOrderByRevisionDesc(environmentKey, toRevision)
             .stream()
             .collect(Collectors.toMap(
-                this::extractGroupingKey,
+                revisionLogEntry -> GroupingHelper.extractGroupingKey(revisionLogEntry, jsonMapper),
                 Function.identity(),
-                (existing, replacement) -> existing,
+                (existing, _) -> existing,
                 LinkedHashMap::new
             ));
 
-        for (Map.Entry<GroupingKey, RevisionLogEntry> entry : revisions.entrySet()) {
+        for (Map.Entry<GroupingHelper.GroupingKey, RevisionLogEntry> entry : revisions.entrySet()) {
             switch (entry.getKey().kind()) {
-                case "FLAG" -> {
+                case GroupingHelper.EntityType.FLAG -> {
                     long currentVersion = flagConfigRepository.findByFlagKeyAndEnvironmentKey(entry.getKey().key(), environment.getKey())
                         .orElseThrow(() -> new IllegalStateException("FlagConfig with key [" + entry.getKey().key() + "] can't be absent"))
                         .getVersion();
@@ -112,7 +113,7 @@ public class RollbackService {
                         flagConfigResponse.offVariant(), flagConfigResponse.rules(), flagConfigResponse.rollout());
                     flagConfigService.upsert(environment.getKey(), entry.getKey().key(), currentVersion, request, actor);
                 }
-                case "SEGMENT" -> {
+                case GroupingHelper.EntityType.SEGMENT -> {
                     SegmentResponse segmentResponse = jsonMapper.treeToValue(entry.getValue().getPayload(), SegmentResponse.class);
                     UpsertSegmentRequest request = new UpsertSegmentRequest(segmentResponse.conditions());
                     segmentService.upsert(environment.getKey(), entry.getKey().key(), request, actor);
@@ -127,16 +128,7 @@ public class RollbackService {
         return response;
     }
 
-    private GroupingKey extractGroupingKey(RevisionLogEntry revision) {
-        return switch (revision.getChangeType()) {
-            case FLAG_CONFIG_UPDATED, FLAG_TOGGLED -> new GroupingKey("FLAG", jsonMapper.treeToValue(revision.getPayload(), FlagConfigResponse.class).flagKey());
-            case SEGMENT_UPDATED -> new GroupingKey("SEGMENT", jsonMapper.treeToValue(revision.getPayload(), SegmentResponse.class).key());
-        };
-    }
-
     private boolean isValidRevision(long revision, Environment environment) {
         return revision >= 1 && revision <= environment.getRevision();
     }
-
-    private record GroupingKey(String kind, String key) {}
 }

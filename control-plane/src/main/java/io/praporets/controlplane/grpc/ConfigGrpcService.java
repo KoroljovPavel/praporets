@@ -1,12 +1,10 @@
 package io.praporets.controlplane.grpc;
 
+import io.grpc.Status;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import io.praporets.controlplane.domain.EnvironmentRepository;
-import io.praporets.grpc.config.v1.ConfigServiceGrpc;
-import io.praporets.grpc.config.v1.ConfigSnapshot;
-import io.praporets.grpc.config.v1.ConfigUpdate;
-import io.praporets.grpc.config.v1.SnapshotRequest;
-import io.praporets.grpc.config.v1.StreamRequest;
+import io.praporets.grpc.config.v1.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -60,29 +58,66 @@ public class ConfigGrpcService extends ConfigServiceGrpc.ConfigServiceImplBase {
 
     private final long revisionWindow;
     private final DeltaAssembler deltaAssembler;
-    private final ConfigStreamRegistry registry;
+    private final ConfigStreamRegistry configStreamRegistry;
     private final ConfigSnapshotAssembler snapshotAssembler;
     private final EnvironmentRepository environmentRepository;
 
     public ConfigGrpcService(DeltaAssembler deltaAssembler,
-                             ConfigStreamRegistry registry,
+                             ConfigStreamRegistry configStreamRegistry,
                              ConfigSnapshotAssembler snapshotAssembler,
                              EnvironmentRepository environmentRepository,
                              @Value("${praporets.grpc.revision-window:500}") long revisionWindow) {
-        this.registry = registry;
         this.deltaAssembler = deltaAssembler;
         this.revisionWindow = revisionWindow;
         this.snapshotAssembler = snapshotAssembler;
+        this.configStreamRegistry = configStreamRegistry;
         this.environmentRepository = environmentRepository;
     }
 
     @Override
     public void getSnapshot(SnapshotRequest request, StreamObserver<ConfigSnapshot> responseObserver) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        environmentRepository.findByKey(request.getEnvironmentKey()).ifPresentOrElse(environment -> {
+            ConfigSnapshot snapshot = snapshotAssembler.assemble(environment);
+            responseObserver.onNext(snapshot);
+            responseObserver.onCompleted();
+        }, () -> responseObserver.onError(Status.NOT_FOUND
+            .withDescription("Environment [" + request.getEnvironmentKey() + "] not found")
+            .asRuntimeException()));
     }
 
     @Override
     public void streamConfig(StreamRequest request, StreamObserver<ConfigUpdate> responseObserver) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        environmentRepository.findByKey(request.getEnvironmentKey()).ifPresentOrElse(
+            environment -> {
+                long gap = environment.getRevision() - request.getFromRevision();
+                if (gap > revisionWindow || gap < 0) {
+                    String reason = String.format(
+                        "Revision gap is out of window [window=%d, requested=%d, current=%d, gap=%d]",
+                        revisionWindow, request.getFromRevision(), environment.getRevision(), gap
+                    );
+                    responseObserver.onNext(ConfigUpdate.newBuilder()
+                        .setSnapshotRequired(SnapshotRequired.newBuilder()
+                            .setReason(reason)
+                            .build())
+                        .build());
+                    responseObserver.onCompleted();
+                } else {
+                    ServerCallStreamObserver<ConfigUpdate> serverCallStreamObserver = (ServerCallStreamObserver<ConfigUpdate>) responseObserver;
+                    serverCallStreamObserver.setOnCancelHandler(() -> configStreamRegistry.deregister(environment.getKey(), responseObserver));
+
+                    configStreamRegistry.register(environment.getKey(), responseObserver);
+                    if (gap != 0) {
+                        ConfigDelta configDelta = deltaAssembler.assembleSince(environment.getKey(), request.getFromRevision());
+                        configStreamRegistry.send(environment.getKey(), responseObserver, ConfigUpdate.newBuilder()
+                            .setRevision(environment.getRevision())
+                            .setDelta(configDelta)
+                            .build());
+                    }
+                }
+            },
+            () -> responseObserver.onError(Status.NOT_FOUND
+                .withDescription("Environment [" + request.getEnvironmentKey() + "] not found")
+                .asRuntimeException())
+        );
     }
 }

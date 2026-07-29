@@ -13,6 +13,15 @@ spring:
     url: jdbc:postgresql://localhost:5432/praporets
     username: praporets
     password: praporets
+  grpc:
+    server:
+      port: 9090
+
+praporets:
+  grpc:
+    heartbeat-interval: 15s
+    revision-window: 500
+
 
 management:
   endpoints:

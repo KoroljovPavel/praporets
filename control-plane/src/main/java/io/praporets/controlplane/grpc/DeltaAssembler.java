@@ -1,11 +1,23 @@
 package io.praporets.controlplane.grpc;
 
+import io.praporets.controlplane.common.GroupingHelper;
 import io.praporets.controlplane.domain.FlagConfigRepository;
+import io.praporets.controlplane.domain.RevisionLogEntry;
 import io.praporets.controlplane.domain.RevisionLogRepository;
 import io.praporets.controlplane.domain.SegmentRepository;
 import io.praporets.grpc.config.v1.ConfigDelta;
+import io.praporets.grpc.config.v1.FlagDefinition;
+import io.praporets.grpc.config.v1.SegmentDefinition;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Склеєна дельта ревізій {@code (fromRevision; поточна]} для одного
@@ -44,16 +56,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class DeltaAssembler {
 
-    private final ConfigProtoMapper mapper;
+    private final JsonMapper jsonMapper;
+    private final ConfigProtoMapper configProtoMapper;
     private final SegmentRepository segmentRepository;
     private final FlagConfigRepository flagConfigRepository;
     private final RevisionLogRepository revisionLogRepository;
 
-    public DeltaAssembler(ConfigProtoMapper mapper,
-                          SegmentRepository segmentRepository,
-                          FlagConfigRepository flagConfigRepository,
-                          RevisionLogRepository revisionLogRepository) {
-        this.mapper = mapper;
+    public DeltaAssembler(JsonMapper jsonMapper, ConfigProtoMapper configProtoMapper, SegmentRepository segmentRepository,
+                          FlagConfigRepository flagConfigRepository, RevisionLogRepository revisionLogRepository) {
+        this.jsonMapper = jsonMapper;
+        this.configProtoMapper = configProtoMapper;
         this.segmentRepository = segmentRepository;
         this.flagConfigRepository = flagConfigRepository;
         this.revisionLogRepository = revisionLogRepository;
@@ -61,6 +73,36 @@ public class DeltaAssembler {
 
     @Transactional(readOnly = true)
     public ConfigDelta assembleSince(String environmentKey, long fromRevision) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        Map<GroupingHelper.GroupingKey, RevisionLogEntry> revisions = revisionLogRepository.findByEnvironmentKeyAndRevisionGreaterThanOrderByRevisionAsc(environmentKey, fromRevision)
+            .stream()
+            .collect(Collectors.toMap(
+                revisionLogEntry -> GroupingHelper.extractGroupingKey(revisionLogEntry, jsonMapper),
+                Function.identity(),
+                (existing, _) -> existing,
+                LinkedHashMap::new
+            ));
+
+        List<FlagDefinition> flagDefinitionList = new ArrayList<>();
+        List<SegmentDefinition> segmentDefinitionList = new ArrayList<>();
+
+        for (Map.Entry<GroupingHelper.GroupingKey, RevisionLogEntry> entry : revisions.entrySet()) {
+            switch (entry.getKey().kind()) {
+                case GroupingHelper.EntityType.FLAG -> {
+                    flagConfigRepository.findByFlagKeyAndEnvironmentKey(entry.getKey().key(), environmentKey).ifPresent(flagConfig -> {
+                        flagDefinitionList.add(configProtoMapper.toFlag(flagConfig));
+                    });
+                }
+                case GroupingHelper.EntityType.SEGMENT -> {
+                    segmentRepository.findByEnvironmentKeyAndKey(environmentKey, entry.getKey().key()).ifPresent(segment -> {
+                        segmentDefinitionList.add(configProtoMapper.toSegment(segment));
+                    });
+                }
+            }
+        }
+
+        return ConfigDelta.newBuilder()
+            .addAllUpsertedFlags(flagDefinitionList)
+            .addAllUpsertedSegments(segmentDefinitionList)
+            .build();
     }
 }

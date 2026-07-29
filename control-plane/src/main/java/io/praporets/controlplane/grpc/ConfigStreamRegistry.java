@@ -1,14 +1,17 @@
 package io.praporets.controlplane.grpc;
 
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.praporets.grpc.config.v1.ConfigUpdate;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 /**
  * Реєстр відкритих gRPC-стрімів цієї репліки (спека §7.3): хто на який
@@ -52,29 +55,57 @@ public class ConfigStreamRegistry {
 
     /** Додає підписника середовища. */
     public void register(String environmentKey, StreamObserver<ConfigUpdate> observer) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        subscribers.computeIfAbsent(environmentKey, k -> ConcurrentHashMap.newKeySet())
+            .add(observer);
     }
 
     /** Прибирає підписника; невідомий observer — тихий no-op (ідемпотентно). */
     public void deregister(String environmentKey, StreamObserver<ConfigUpdate> observer) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        Set<StreamObserver<ConfigUpdate>> streamObservers = subscribers.get(environmentKey);
+        if (streamObservers != null) {
+            streamObservers.remove(observer);
+        }
     }
 
     /**
      * Шле update усім підписникам середовища. Observer, що кинув виняток,
      * дереєструється мовчки; середовище без підписників — no-op.
      */
+    // лок = сам observer: він спільний для всіх publisher у цей стрім (лежить у
+    // subscribers), а лок-на-стрім не серіалізує розсилку в ІНШІ стріми
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
     public void publish(String environmentKey, ConfigUpdate update) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        Set<StreamObserver<ConfigUpdate>> streamObservers = subscribers.get(environmentKey);
+        if (streamObservers != null) {
+            for (StreamObserver<ConfigUpdate> streamObserver : streamObservers) {
+                send(environmentKey, streamObserver, update);
+            }
+        }
+    }
+
+    // лок = сам observer: він спільний для всіх publishers у цей стрім (лежить у
+    // subscribers), а лок-на-стрім не серіалізує розсилку в ІНШІ стріми
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+    public void send(String environmentKey, StreamObserver<ConfigUpdate> observer, ConfigUpdate update) {
+        synchronized (observer) {
+            try {
+                observer.onNext(update);
+            } catch (IllegalStateException | StatusRuntimeException e) {
+                deregister(environmentKey, observer);
+            }
+        }
     }
 
     /** Середовища, що мають хоч одного підписника (для heartbeat-обходу). */
     public Set<String> activeEnvironments() {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        return subscribers.entrySet().stream()
+            .filter(entry -> entry.getValue() != null && !entry.getValue().isEmpty())
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toSet());
     }
 
     /** Сумарна кількість відкритих стрімів (значення gauge). */
     public int activeStreams() {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        return subscribers.values().stream().mapToInt(Set::size).sum();
     }
 }

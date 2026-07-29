@@ -1,6 +1,8 @@
 package io.praporets.controlplane.grpc;
 
 import io.praporets.controlplane.service.ConfigChangedEvent;
+import io.praporets.grpc.config.v1.ConfigDelta;
+import io.praporets.grpc.config.v1.ConfigUpdate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -30,15 +32,22 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class ConfigChangePublisher {
 
     private final DeltaAssembler deltaAssembler;
-    private final ConfigStreamRegistry registry;
+    private final ConfigStreamRegistry configStreamRegistry;
 
-    public ConfigChangePublisher(DeltaAssembler deltaAssembler, ConfigStreamRegistry registry) {
-        this.registry = registry;
+    public ConfigChangePublisher(DeltaAssembler deltaAssembler, ConfigStreamRegistry configStreamRegistry) {
         this.deltaAssembler = deltaAssembler;
+        this.configStreamRegistry = configStreamRegistry;
     }
 
     @TransactionalEventListener
     public void onConfigChanged(ConfigChangedEvent event) {
-        throw new UnsupportedOperationException("02b: твоя реалізація");
+        if (!configStreamRegistry.activeEnvironments().contains(event.environmentKey()))
+            return;
+
+        ConfigDelta delta = deltaAssembler.assembleSince(event.environmentKey(), event.revision() - 1);
+        configStreamRegistry.publish(event.environmentKey(), ConfigUpdate.newBuilder()
+            .setRevision(event.revision())
+            .setDelta(delta)
+            .build());
     }
 }

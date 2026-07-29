@@ -1,6 +1,7 @@
 package io.praporets.controlplane.service;
 
 import io.praporets.controlplane.domain.*;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -33,12 +34,14 @@ public class RevisionRecorder {
     private final AuditLogRepository auditLogRepository;
     private final RevisionLogRepository revisionLogRepository;
     private final EnvironmentRepository environmentRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public RevisionRecorder(AuditLogRepository auditLogRepository, RevisionLogRepository revisionLogRepository,
-                            EnvironmentRepository environmentRepository) {
+                            EnvironmentRepository environmentRepository, ApplicationEventPublisher applicationEventPublisher) {
         this.auditLogRepository = auditLogRepository;
         this.revisionLogRepository = revisionLogRepository;
         this.environmentRepository = environmentRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     /**
@@ -58,6 +61,8 @@ public class RevisionRecorder {
         long revision = environment.incrementRevision();
 
         revisionLogRepository.save(new RevisionLogEntry(environment, revision, changeType, payload));
+
+        applicationEventPublisher.publishEvent(new ConfigChangedEvent(environmentKey, revision));
 
         return revision;
     }
