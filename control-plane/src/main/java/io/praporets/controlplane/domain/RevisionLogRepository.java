@@ -12,4 +12,7 @@ public interface RevisionLogRepository extends JpaRepository<RevisionLogEntry, L
 
     /** Для rollback (H4): усі записи до {@code toRevision} включно, новіші перші. */
     List<RevisionLogEntry> findByEnvironmentKeyAndRevisionLessThanEqualOrderByRevisionDesc(String environmentKey, long revision);
+
+    /** Для склеєної дельти 02b (спека §7.4): записи СУВОРО ПІСЛЯ {@code revision}, старіші перші. */
+    List<RevisionLogEntry> findByEnvironmentKeyAndRevisionGreaterThanOrderByRevisionAsc(String environmentKey, long revision);
 }

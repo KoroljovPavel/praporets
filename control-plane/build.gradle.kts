@@ -8,6 +8,10 @@ java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 
 dependencies {
     implementation(project(":praporets-core"))
+    // gRPC-сервер ConfigService; contracts дає згенеровані класи
+    // і (транзитивно, через api) protobuf-java + grpc-stub
+    implementation(project(":praporets-contracts"))
+    implementation(libs.spring.boot.starter.grpc.server)
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.jackson)
@@ -21,6 +25,9 @@ dependencies {
     testImplementation(libs.spring.boot.starter.flyway.test)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.boot.testcontainers)
+    // клієнтські стаби + in-process транспорт для gRPC-тестів
+    testImplementation(libs.spring.boot.starter.grpc.client)
+    testImplementation(libs.spring.boot.starter.grpc.client.test)
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)

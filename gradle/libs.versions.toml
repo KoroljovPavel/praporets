@@ -5,10 +5,12 @@ junitBom = "6.1.1"
 assertj = "3.27.7"
 jqwik = "1.10.1"
 archunit = "1.4.1"
-# звірено з Maven Central 2026-07-28; protoc і protoc-gen-grpc-java
-# беруться цими ж version.ref-ами в build.gradle.kts модуля contracts
-protobuf = "4.35.1"
-grpc = "1.83.0"
+# вирівняно під Spring Boot 4.1 BOM (він менеджить grpc/protobuf у
+# control-plane і ЗНИЖУВАВ би наші 1.83/4.35.1 — codegen у contracts був би
+# новішим за runtime). protoc і protoc-gen-grpc-java беруться цими ж
+# version.ref-ами в build.gradle.kts модуля contracts
+protobuf = "4.34.2"
+grpc = "1.80.0"
 protobufPlugin = "0.10.0"
 
 [plugins]
@@ -33,6 +35,11 @@ spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-bo
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+
+# Spring gRPC — версії менеджить Spring Boot 4.1 BOM, тому без version.ref
+spring-boot-starter-grpc-server = { module = "org.springframework.boot:spring-boot-starter-grpc-server" }
+spring-boot-starter-grpc-client = { module = "org.springframework.boot:spring-boot-starter-grpc-client" }
+spring-boot-starter-grpc-client-test = { module = "org.springframework.boot:spring-boot-starter-grpc-client-test" }
 
 protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
 grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
