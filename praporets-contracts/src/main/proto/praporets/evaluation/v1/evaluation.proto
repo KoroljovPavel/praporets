@@ -1,0 +1,48 @@
+syntax = "proto3";
+package praporets.evaluation.v1;
+option java_multiple_files = true;
+option java_package = "io.praporets.grpc.evaluation.v1";
+
+service EvaluationService {
+  rpc Evaluate    (EvaluateRequest)    returns (EvaluateResponse);
+  rpc EvaluateAll (EvaluateAllRequest) returns (EvaluateAllResponse);
+}
+
+message EvaluationContext {
+  string user_key = 1;
+  map<string, string> attributes = 2;   // country=UA, plan=pro, appVersion=5.2.1
+}
+
+message EvaluateRequest {
+  string            environment_key = 1;
+  string            flag_key        = 2;
+  EvaluationContext context         = 3;
+}
+
+message EvaluateResponse {
+  string  flag_key    = 1;
+  string  variant_key = 2;
+  string  json_value  = 3;
+  Reason  reason      = 4;
+  string  rule_id     = 5;     // яке саме правило спрацювало
+  int64   revision    = 6;     // на якій ревізії обчислено — критично для дебагу
+}
+
+message EvaluateAllRequest {
+  string            environment_key = 1;
+  EvaluationContext context         = 2;
+}
+message EvaluateAllResponse {
+  repeated EvaluateResponse evaluations = 1;
+  int64 revision = 2;
+}
+
+enum Reason {
+  REASON_UNSPECIFIED = 0;
+  FLAG_DISABLED   = 1;   // enabled = false → off_variant
+  RULE_MATCH      = 2;
+  ROLLOUT         = 3;
+  DEFAULT         = 4;
+  FLAG_NOT_FOUND  = 5;   // повертаємо default від клієнта
+  ERROR           = 6;
+}

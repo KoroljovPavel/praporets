@@ -1,0 +1,101 @@
+syntax = "proto3";
+package praporets.config.v1;
+option java_multiple_files = true;
+option java_package = "io.praporets.grpc.config.v1";
+
+service ConfigService {
+  // Повний зліпок конфігурації середовища
+  rpc GetSnapshot (SnapshotRequest) returns (ConfigSnapshot);
+
+  // Довгоживучий server-stream: дельти при кожній зміні
+  rpc StreamConfig (StreamRequest) returns (stream ConfigUpdate);
+}
+
+message SnapshotRequest {
+  string environment_key = 1;
+}
+
+message StreamRequest {
+  string environment_key = 1;
+  int64  from_revision   = 2;   // 0 = хочу все з нуля
+  string edge_instance_id = 3;  // для метрик і логів
+}
+
+message ConfigSnapshot {
+  string   environment_key = 1;
+  int64    revision        = 2;
+  repeated FlagDefinition flags    = 3;
+  repeated SegmentDefinition segments = 4;
+}
+
+message ConfigUpdate {
+  int64 revision = 1;
+  oneof payload {
+    ConfigDelta       delta            = 2;
+    SnapshotRequired  snapshot_required = 3;   // розрив завеликий
+    Heartbeat         heartbeat        = 4;
+  }
+}
+
+message ConfigDelta {
+  repeated FlagDefinition    upserted_flags    = 1;
+  repeated string            removed_flag_keys = 2;
+  repeated SegmentDefinition upserted_segments = 3;
+  repeated string            removed_segment_keys = 4;
+}
+
+message SnapshotRequired { string reason = 1; }
+message Heartbeat { int64 server_time_millis = 1; }
+
+message FlagDefinition {
+  string    key             = 1;
+  ValueType value_type      = 2;
+  bool      enabled         = 3;
+  string    default_variant = 4;
+  string    off_variant     = 5;
+  repeated  Variant variants = 6;
+  repeated  Rule    rules    = 7;   // впорядковані
+  Rollout   rollout         = 8;
+}
+
+message Variant {
+  string key       = 1;
+  string json_value = 2;   // значення завжди як JSON-рядок
+}
+
+message Rule {
+  string          id           = 1;
+  repeated Clause clauses      = 2;   // AND між клозами
+  string          variant_key  = 3;   // або...
+  Rollout         rollout      = 4;   // ...відсотковий розподіл усередині правила
+}
+
+message Clause {
+  string   attribute = 1;    // country, plan, appVersion, segment
+  Operator operator  = 2;
+  repeated string values = 3;
+  bool     negate    = 4;
+}
+
+message Rollout {
+  string   salt    = 1;               // стабільність бакетів
+  repeated Bucket buckets = 2;        // сума weight = 100000
+}
+message Bucket {
+  string variant_key = 1;
+  int32  weight      = 2;             // у стотисячних (100000 = 100%)
+}
+
+message SegmentDefinition {
+  string          key     = 1;
+  repeated Clause clauses = 2;
+}
+
+enum ValueType { VALUE_TYPE_UNSPECIFIED = 0; BOOLEAN = 1; STRING = 2; NUMBER = 3; JSON = 4; }
+enum Operator {
+  OPERATOR_UNSPECIFIED = 0;
+  IN = 1; STARTS_WITH = 2; ENDS_WITH = 3; CONTAINS = 4;
+  GREATER_THAN = 5; LESS_THAN = 6;
+  SEMVER_GREATER_OR_EQUAL = 7;
+  IN_SEGMENT = 8;
+}
