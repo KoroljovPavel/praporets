@@ -1,8 +1,12 @@
 package io.praporets.edge.config;
 
-import io.praporets.core.model.EnvironmentConfig;
+import io.praporets.core.model.*;
 import io.praporets.grpc.config.v1.ConfigSnapshot;
 import jakarta.enterprise.context.ApplicationScoped;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Зворотний бік мапера з 02b: proto {@code ConfigSnapshot} → core
@@ -38,6 +42,52 @@ public class ProtoToCoreMapper {
      * Повний снапшот → готова до обчислення core-конфігурація середовища.
      */
     public EnvironmentConfig toEnvironmentConfig(ConfigSnapshot snapshot) {
-        throw new UnsupportedOperationException("02c: твоя реалізація");
+
+        Map<String, FlagDefinition> flagDefinitionMap = snapshot.getFlagsList().stream().map(flag -> new FlagDefinition(
+            flag.getKey(), flag.getEnabled(), flag.getDefaultVariant(), flag.getOffVariant(),
+            parseVariants(flag.getVariantsList()),
+            parseRules(flag.getRulesList()),
+            flag.hasRollout() ? parseRollout(flag.getRollout()) : null
+        )).collect(Collectors.toMap(FlagDefinition::key, entry -> entry));
+
+        Map<String, Segment> segmentMap = snapshot.getSegmentsList().stream().map(segment -> new Segment(
+            segment.getKey(), parseClauses(segment.getClausesList())
+        )).collect(Collectors.toMap(Segment::key, entry -> entry));
+
+        return new EnvironmentConfig(flagDefinitionMap, segmentMap);
+    }
+
+    private List<Variant> parseVariants(List<io.praporets.grpc.config.v1.Variant> variantsList) {
+        return variantsList.stream()
+            .map(variant -> new Variant(
+                variant.getKey().isEmpty() ? null : variant.getKey(),
+                variant.getJsonValue())
+            ).toList();
+    }
+
+    private List<Rule> parseRules(List<io.praporets.grpc.config.v1.Rule> rulesList) {
+        return rulesList.stream().map(rule -> new Rule(
+            rule.getId().isEmpty() ? null : rule.getId(),
+            parseClauses(rule.getClausesList()),
+            rule.getVariantKey().isEmpty() ? null : rule.getVariantKey(),
+            rule.hasRollout() ? parseRollout(rule.getRollout()) : null
+        )).toList();
+    }
+
+    private List<Clause> parseClauses(List<io.praporets.grpc.config.v1.Clause> clauseList) {
+        return clauseList.stream().map(clause -> new Clause(
+            clause.getAttribute(),
+            Operator.valueOf(clause.getOperator().name()),
+            clause.getValuesList(),
+            clause.getNegate()
+        )).toList();
+    }
+
+    private Rollout parseRollout(io.praporets.grpc.config.v1.Rollout rollout) {
+        return new Rollout(rollout.getSalt(), parseBuckets(rollout.getBucketsList()));
+    }
+
+    private List<Bucket> parseBuckets(List<io.praporets.grpc.config.v1.Bucket> bucketList) {
+        return bucketList.stream().map(bucket -> new Bucket(bucket.getVariantKey(), bucket.getWeight())).toList();
     }
 }

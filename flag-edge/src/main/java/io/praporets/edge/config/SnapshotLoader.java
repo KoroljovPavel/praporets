@@ -1,9 +1,21 @@
 package io.praporets.edge.config;
 
+import io.grpc.Channel;
+import io.praporets.grpc.config.v1.ConfigServiceGrpc;
+import io.praporets.grpc.config.v1.ConfigSnapshot;
+import io.praporets.grpc.config.v1.SnapshotRequest;
+import io.quarkus.grpc.GrpcClient;
+import io.quarkus.logging.Log;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * E-01: на старті тягне повний снапшот із control-plane і кладе в
@@ -41,11 +53,50 @@ import jakarta.enterprise.event.Observes;
 @ApplicationScoped
 public class SnapshotLoader {
 
+    @GrpcClient("config")
+    Channel channel;
+
+    @ConfigProperty(name = "praporets.edge.environment")
+    String environment;
+
+    @Inject
+    ConfigStore configStore;
+
+    @Inject
+    ProtoToCoreMapper protoToCoreMapper;
+
+    private static final long RETRY_INTERVAL_MS = 2000L;
+
+    private final ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "edge-background-worker");
+        t.setDaemon(true);
+        return t;
+    });
+
     void onStart(@Observes StartupEvent event) {
-        throw new UnsupportedOperationException("02c: твоя реалізація");
+        singleThreadExecutor.submit(this::loadDataInBackground);
+    }
+
+    private void loadDataInBackground() {
+        while (!configStore.isLoaded() && !Thread.currentThread().isInterrupted()) {
+            try {
+                ConfigSnapshot snapshot = ConfigServiceGrpc.newBlockingStub(channel)
+                    .getSnapshot(SnapshotRequest.newBuilder().setEnvironmentKey(environment).build());
+                configStore.swap(new ConfigStore.StoredConfig(snapshot.getRevision(), protoToCoreMapper.toEnvironmentConfig(snapshot)));
+                break;
+            } catch (Exception e) {
+                Log.warn("Failed to get snapshot", e);
+                try {
+                    TimeUnit.MILLISECONDS.sleep(RETRY_INTERVAL_MS);
+                } catch (InterruptedException e1) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
     }
 
     void onStop(@Observes ShutdownEvent event) {
-        throw new UnsupportedOperationException("02c: твоя реалізація");
+        singleThreadExecutor.shutdownNow();
     }
 }

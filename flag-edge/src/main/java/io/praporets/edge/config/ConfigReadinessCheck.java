@@ -1,6 +1,7 @@
 package io.praporets.edge.config;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.health.HealthCheck;
 import org.eclipse.microprofile.health.HealthCheckResponse;
 import org.eclipse.microprofile.health.Readiness;
@@ -24,8 +25,16 @@ import org.eclipse.microprofile.health.Readiness;
 @ApplicationScoped
 public class ConfigReadinessCheck implements HealthCheck {
 
+    @Inject
+    ConfigStore configStore;
+
     @Override
     public HealthCheckResponse call() {
-        throw new UnsupportedOperationException("02c: твоя реалізація");
+        if (configStore.isLoaded()) {
+            long revision = configStore.current().map(ConfigStore.StoredConfig::revision).orElse(-1L);
+            return HealthCheckResponse.builder().up().name("edge-config").withData("revision", revision).build();
+        } else {
+            return HealthCheckResponse.down("edge-config");
+        }
     }
 }

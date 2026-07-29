@@ -37,9 +37,14 @@ public class FakeControlPlane implements QuarkusTestResourceLifecycleManager {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        System.out.println("[FakeControlPlane] listening on port " + server.getPort());
         return Map.of(
             "quarkus.grpc.clients.config.host", "localhost",
             "quarkus.grpc.clients.config.port", String.valueOf(server.getPort()),
+            // у LaunchMode TEST Quarkus ІГНОРУЄ port і бере test-port (дефолт —
+            // порт власного тестового gRPC-сервера, 9001) — без цього рядка
+            // клієнт ходить у порожній сервер edge і отримує UNIMPLEMENTED
+            "quarkus.grpc.clients.config.test-port", String.valueOf(server.getPort()),
             "quarkus.grpc.clients.config.plain-text", "true",
             "praporets.edge.environment", ENVIRONMENT
         );
