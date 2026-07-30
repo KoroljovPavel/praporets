@@ -9,6 +9,7 @@ dependencies {
     implementation(enforcedPlatform(libs.quarkus.bom))
     implementation(libs.quarkus.grpc)
     implementation(libs.quarkus.smallrye.health)
+    implementation(libs.quarkus.micrometer.registry.prometheus)
 
     implementation(project(":praporets-contracts"))
     implementation(project(":praporets-core"))

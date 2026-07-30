@@ -57,6 +57,16 @@ public class ProtoToCoreMapper {
         return new EnvironmentConfig(flagDefinitionMap, segmentMap);
     }
 
+    /**
+     * 02d: proto-дельта → core {@link io.praporets.core.revision.Delta}.
+     * Реюзни ті самі приватні parse-хелпери, що й снапшот; removed-ключі —
+     * як є (це прості рядки). Ті самі правила: енуми за ім'ям, IAE на
+     * UNSPECIFIED — зіпсована дельта має падати голосно ДО swap-у.
+     */
+    public io.praporets.core.revision.Delta toDelta(io.praporets.grpc.config.v1.ConfigDelta protoDelta) {
+        throw new UnsupportedOperationException("02d: твоя реалізація");
+    }
+
     private List<Variant> parseVariants(List<io.praporets.grpc.config.v1.Variant> variantsList) {
         return variantsList.stream()
             .map(variant -> new Variant(
