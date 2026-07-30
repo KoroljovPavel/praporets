@@ -1,6 +1,12 @@
 package io.praporets.core.revision;
 
 import io.praporets.core.model.EnvironmentConfig;
+import io.praporets.core.model.FlagDefinition;
+import io.praporets.core.model.Segment;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Чиста функція застосування {@link Delta} до {@link EnvironmentConfig}:
@@ -27,6 +33,16 @@ public final class DeltaApplier {
     }
 
     public static EnvironmentConfig apply(EnvironmentConfig current, Delta delta) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Map<String, FlagDefinition> flags = new HashMap<>(current.flags());
+        Optional.ofNullable(delta.removedFlagKeys()).ifPresent(flags.keySet()::removeAll);
+        Optional.ofNullable(delta.upsertedFlags()).ifPresent(list ->
+            list.forEach(flag -> flags.put(flag.key(), flag)));
+
+        Map<String, Segment> segments = new HashMap<>(current.segments());
+        Optional.ofNullable(delta.removedSegmentKeys()).ifPresent(segments.keySet()::removeAll);
+        Optional.ofNullable(delta.upsertedSegments()).ifPresent(list ->
+            list.forEach(segment -> segments.put(segment.key(), segment)));
+
+        return new EnvironmentConfig(flags, segments);
     }
 }
