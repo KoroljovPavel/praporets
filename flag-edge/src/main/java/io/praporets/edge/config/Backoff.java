@@ -37,13 +37,17 @@ public class Backoff {
      * після обчислення стеля подвоюється (не вище капу).
      */
     public long nextDelayMillis() {
-        throw new UnsupportedOperationException("02d: твоя реалізація");
+        long delayMillis = (long) (jitterSource.getAsDouble() * ceilingMillis);
+
+        ceilingMillis = Math.min(capMillis, ceilingMillis * 2);
+
+        return delayMillis;
     }
 
     /**
      * Повертає стелю до {@code baseMillis} — звати після успішного повідомлення.
      */
     public void reset() {
-        throw new UnsupportedOperationException("02d: твоя реалізація");
+        ceilingMillis = baseMillis;
     }
 }

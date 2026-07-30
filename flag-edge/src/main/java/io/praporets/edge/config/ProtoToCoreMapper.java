@@ -1,11 +1,16 @@
 package io.praporets.edge.config;
 
 import io.praporets.core.model.*;
+import io.praporets.core.revision.Delta;
+import io.praporets.grpc.config.v1.ConfigDelta;
 import io.praporets.grpc.config.v1.ConfigSnapshot;
+import io.praporets.grpc.config.v1.SegmentDefinition;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -43,16 +48,11 @@ public class ProtoToCoreMapper {
      */
     public EnvironmentConfig toEnvironmentConfig(ConfigSnapshot snapshot) {
 
-        Map<String, FlagDefinition> flagDefinitionMap = snapshot.getFlagsList().stream().map(flag -> new FlagDefinition(
-            flag.getKey(), flag.getEnabled(), flag.getDefaultVariant(), flag.getOffVariant(),
-            parseVariants(flag.getVariantsList()),
-            parseRules(flag.getRulesList()),
-            flag.hasRollout() ? parseRollout(flag.getRollout()) : null
-        )).collect(Collectors.toMap(FlagDefinition::key, entry -> entry));
+        Map<String, FlagDefinition> flagDefinitionMap = snapshot.getFlagsList().stream().map(this::parseFlag)
+            .collect(Collectors.toMap(FlagDefinition::key, entry -> entry));
 
-        Map<String, Segment> segmentMap = snapshot.getSegmentsList().stream().map(segment -> new Segment(
-            segment.getKey(), parseClauses(segment.getClausesList())
-        )).collect(Collectors.toMap(Segment::key, entry -> entry));
+        Map<String, Segment> segmentMap = snapshot.getSegmentsList().stream().map(this::parseSegment)
+            .collect(Collectors.toMap(Segment::key, entry -> entry));
 
         return new EnvironmentConfig(flagDefinitionMap, segmentMap);
     }
@@ -63,8 +63,31 @@ public class ProtoToCoreMapper {
      * як є (це прості рядки). Ті самі правила: енуми за ім'ям, IAE на
      * UNSPECIFIED — зіпсована дельта має падати голосно ДО swap-у.
      */
-    public io.praporets.core.revision.Delta toDelta(io.praporets.grpc.config.v1.ConfigDelta protoDelta) {
-        throw new UnsupportedOperationException("02d: твоя реалізація");
+    public Delta toDelta(ConfigDelta protoDelta) {
+        List<FlagDefinition> upsertedFlags = protoDelta.getUpsertedFlagsList().stream().map(this::parseFlag).toList();
+        List<Segment> upsertedSegments = protoDelta.getUpsertedSegmentsList().stream().map(this::parseSegment).toList();
+        Set<String> removedFlagKeys = new HashSet<>(protoDelta.getRemovedFlagKeysList());
+        Set<String> removedSegmentKeys = new HashSet<>(protoDelta.getRemovedSegmentKeysList());
+
+        return new Delta(
+            upsertedFlags,
+            removedFlagKeys,
+            upsertedSegments,
+            removedSegmentKeys
+        );
+    }
+
+    private FlagDefinition parseFlag(io.praporets.grpc.config.v1.FlagDefinition flag) {
+        return new FlagDefinition(
+            flag.getKey(), flag.getEnabled(), flag.getDefaultVariant(), flag.getOffVariant(),
+            parseVariants(flag.getVariantsList()),
+            parseRules(flag.getRulesList()),
+            flag.hasRollout() ? parseRollout(flag.getRollout()) : null
+        );
+    }
+
+    private Segment parseSegment(SegmentDefinition segment) {
+        return new Segment(segment.getKey(), parseClauses(segment.getClausesList()));
     }
 
     private List<Variant> parseVariants(List<io.praporets.grpc.config.v1.Variant> variantsList) {

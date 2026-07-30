@@ -4,7 +4,6 @@ import io.praporets.core.model.EnvironmentConfig;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Єдине сховище конфігурації edge-інстанса: незмінний знімок
@@ -23,7 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @ApplicationScoped
 public class ConfigStore {
 
-    private final AtomicReference<StoredConfig> storedConfig = new AtomicReference<>();
+    private volatile StoredConfig storedConfig;
 
     /**
      * Незмінний знімок: ревізія + готова core-конфігурація.
@@ -38,20 +37,20 @@ public class ConfigStore {
      * Атомарно підміняє поточний знімок новим.
      */
     public void swap(StoredConfig newConfig) {
-        storedConfig.set(newConfig);
+        storedConfig = newConfig;
     }
 
     /**
      * Поточний знімок; порожній до першого успішного завантаження.
      */
     public Optional<StoredConfig> current() {
-        return Optional.ofNullable(storedConfig.get());
+        return Optional.ofNullable(storedConfig);
     }
 
     /**
      * Чи завантажено конфігурацію хоч раз (для readiness).
      */
     public boolean isLoaded() {
-        return storedConfig.get() != null;
+        return storedConfig != null;
     }
 }

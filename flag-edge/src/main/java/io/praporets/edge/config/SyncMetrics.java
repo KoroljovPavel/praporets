@@ -1,6 +1,11 @@
 package io.praporets.edge.config;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
+
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Дві метрики синхронізації (D6, частина E-06/E-08), видимі на `/q/metrics`:
@@ -27,10 +32,30 @@ import jakarta.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class SyncMetrics {
 
+    AtomicLong lastSyncSeconds = new AtomicLong(Instant.now().getEpochSecond());
+    AtomicLong lastRevision = new AtomicLong(0);
+
+    public SyncMetrics(MeterRegistry meterRegistry) {
+        Gauge.builder("flag_edge_config_staleness_seconds", this, SyncMetrics::calculateSecondsAgo)
+            .description("скільки секунд тому edge востаннє чув від CP підтвердження актуальності")
+            .baseUnit("seconds")
+            .register(meterRegistry);
+
+        Gauge.builder("flag_edge_config_revision", lastRevision, AtomicLong::get)
+            .description("поточна ревізія")
+            .baseUnit("revision")
+            .register(meterRegistry);
+    }
+
+    private double calculateSecondsAgo() {
+        return Instant.now().getEpochSecond() - lastSyncSeconds.get();
+    }
+
     /**
      * Фіксує успішну синхронізацію: оновлює і час, і ревізію.
      */
     public void markSynced(long revision) {
-        throw new UnsupportedOperationException("02d: твоя реалізація");
+        lastSyncSeconds.set(Instant.now().getEpochSecond());
+        lastRevision.set(revision);
     }
 }
