@@ -8,6 +8,8 @@ java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
 dependencies {
     implementation(enforcedPlatform(libs.quarkus.bom))
     implementation(libs.quarkus.grpc)
+    implementation(libs.quarkus.rest.jackson)
+    implementation(libs.quarkus.hibernate.validator)
     implementation(libs.quarkus.smallrye.health)
     implementation(libs.quarkus.micrometer.registry.prometheus)
 
