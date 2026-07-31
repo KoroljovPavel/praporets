@@ -87,16 +87,14 @@ public class DeltaAssembler {
 
         for (Map.Entry<GroupingHelper.GroupingKey, RevisionLogEntry> entry : revisions.entrySet()) {
             switch (entry.getKey().kind()) {
-                case GroupingHelper.EntityType.FLAG -> {
+                case GroupingHelper.EntityType.FLAG ->
                     flagConfigRepository.findByFlagKeyAndEnvironmentKey(entry.getKey().key(), environmentKey).ifPresent(flagConfig -> {
                         flagDefinitionList.add(configProtoMapper.toFlag(flagConfig));
                     });
-                }
-                case GroupingHelper.EntityType.SEGMENT -> {
+                case GroupingHelper.EntityType.SEGMENT ->
                     segmentRepository.findByEnvironmentKeyAndKey(environmentKey, entry.getKey().key()).ifPresent(segment -> {
                         segmentDefinitionList.add(configProtoMapper.toSegment(segment));
                     });
-                }
             }
         }
 

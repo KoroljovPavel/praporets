@@ -3,7 +3,6 @@ package io.praporets.controlplane.service;
 import io.praporets.controlplane.api.dto.FlagConfigResponse;
 import io.praporets.controlplane.api.dto.UpsertFlagConfigRequest;
 import io.praporets.controlplane.domain.*;
-import io.praporets.core.model.Bucket;
 import io.praporets.core.model.Rule;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
