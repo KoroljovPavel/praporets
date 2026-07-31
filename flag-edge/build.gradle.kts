@@ -19,6 +19,17 @@ dependencies {
     testImplementation(libs.quarkus.junit5)
     testImplementation(libs.rest.assured)
     testImplementation(libs.assertj)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.testcontainers.postgresql)
+    testRuntimeOnly(libs.postgresql)
 }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+    useJUnitPlatform()
+    dependsOn(":control-plane:bootJar")
+    systemProperty(
+        "praporets.cp.jar",
+        rootProject.layout.projectDirectory
+            .file("control-plane/build/libs/control-plane-${version}.jar").asFile.absolutePath
+    )
+}

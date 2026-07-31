@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * траплятись ТІЛЬКИ коли їх викликає сценарій, а не фоновий таймаут тиші.
  */
 @QuarkusTest
-@QuarkusTestResource(FakeControlPlane.class)
+@QuarkusTestResource(value = FakeControlPlane.class, restrictToAnnotatedClass = true)
 @TestProfile(ConfigStreamSyncTest.StreamProfile.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ConfigStreamSyncTest {

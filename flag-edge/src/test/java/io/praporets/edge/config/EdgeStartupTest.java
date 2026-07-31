@@ -19,7 +19,7 @@ import static org.hamcrest.Matchers.is;
  * полінгом, а не сподіваються на порядок подій старту.
  */
 @QuarkusTest
-@QuarkusTestResource(FakeControlPlane.class)
+@QuarkusTestResource(value = FakeControlPlane.class, restrictToAnnotatedClass = true)
 class EdgeStartupTest {
 
     @Inject

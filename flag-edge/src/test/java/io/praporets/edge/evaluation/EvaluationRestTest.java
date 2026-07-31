@@ -22,7 +22,7 @@ import static org.hamcrest.Matchers.nullValue;
  * {@code EdgeStartupTest}; канонічний снапшот ревізії 7.
  */
 @QuarkusTest
-@QuarkusTestResource(FakeControlPlane.class)
+@QuarkusTestResource(value = FakeControlPlane.class, restrictToAnnotatedClass = true)
 class EvaluationRestTest {
 
     @Inject
