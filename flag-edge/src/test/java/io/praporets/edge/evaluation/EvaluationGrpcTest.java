@@ -29,11 +29,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * контекст, щоб не зламати інваріанти сусідніх класів. Тести впорядковані:
  * дельта-тест іде строго останнім.
  *
- * <p>Канал — на {@code quarkus.grpc.server.test-port} (дефолт 9001, НЕ 9000 —
- * камінь #4).
+ * <p>Канал — на {@code quarkus.grpc.server.test-port} 8081
  */
 @QuarkusTest
-@QuarkusTestResource(FakeControlPlane.class)
+@QuarkusTestResource(value = FakeControlPlane.class, restrictToAnnotatedClass = true)
 @TestProfile(EvaluationGrpcTest.EvalProfile.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class EvaluationGrpcTest {
@@ -50,7 +49,7 @@ class EvaluationGrpcTest {
     void awaitLoadedAndOpenChannel() throws InterruptedException {
         await("снапшот завантажено", () -> store.isLoaded());
         if (channel == null) {
-            channel = ManagedChannelBuilder.forAddress("localhost", 9001).usePlaintext().build();
+            channel = ManagedChannelBuilder.forAddress("localhost", 8081).usePlaintext().build();
         }
     }
 
