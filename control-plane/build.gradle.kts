@@ -19,6 +19,11 @@ dependencies {
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
     implementation(libs.spring.boot.starter.actuator)
+    // transactional outbox → Kafka (стартер, не голий spring-kafka:
+    // Boot 4 модульний — ConnectionDetails/автоконфіг живуть у spring-boot-kafka)
+    implementation(libs.spring.boot.starter.kafka)
+    // JsonFormat для proto→JSON у payload outbox; contracts дає лише core protobuf-java
+    implementation(libs.protobuf.java.util)
     runtimeOnly(libs.postgresql)
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.spring.boot.starter.data.jpa.test)
@@ -31,6 +36,7 @@ dependencies {
     testImplementation(libs.archunit.junit5)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.kafka)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

@@ -16,11 +16,22 @@ spring:
   grpc:
     server:
       port: 9090
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # relay чекає ack від брокера: без acks=all «опубліковано»
+      # означало б лише «прийнято в сокет»
+      acks: all
 
 praporets:
   grpc:
     heartbeat-interval: 15s
     revision-window: 500
+  outbox:
+    relay:
+      enabled: true
+      poll-interval: 200ms
+      batch-size: 100
 
 
 management:

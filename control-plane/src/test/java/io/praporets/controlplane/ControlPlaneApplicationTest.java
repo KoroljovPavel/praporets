@@ -27,13 +27,13 @@ class ControlPlaneApplicationTest {
         Integer applied = jdbc.queryForObject(
             "select count(*) from flyway_schema_history where success", Integer.class
         );
-        assertThat(applied).isEqualTo(1);
+        assertThat(applied).isEqualTo(2);
 
         assertThat(jdbc.queryForList("""
             select table_name from information_schema.tables
             where table_schema = 'public' and table_name != 'flyway_schema_history'
             """, String.class))
             .containsExactlyInAnyOrder("environment", "flag", "variant", "segment",
-                "flag_config", "revision_log", "audit_log");
+                "flag_config", "revision_log", "audit_log", "outbox");
     }
 }
