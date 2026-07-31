@@ -3,15 +3,10 @@ package io.praporets.controlplane.grpc;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.praporets.controlplane.TestKafka;
 import io.praporets.controlplane.TestPostgres;
-import io.praporets.grpc.config.v1.ConfigServiceGrpc;
-import io.praporets.grpc.config.v1.ConfigSnapshot;
-import io.praporets.grpc.config.v1.ConfigUpdate;
-import io.praporets.grpc.config.v1.FlagDefinition;
-import io.praporets.grpc.config.v1.Operator;
-import io.praporets.grpc.config.v1.SnapshotRequest;
-import io.praporets.grpc.config.v1.StreamRequest;
-import io.praporets.grpc.config.v1.ValueType;
+import io.praporets.controlplane.outbox.OutboxRelay;
+import io.praporets.grpc.config.v1.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.grpc.test.autoconfigure.AutoConfigureTestGrpcTransport;
@@ -20,7 +15,10 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.grpc.client.GrpcChannelFactory;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.util.Iterator;
@@ -47,10 +45,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Heartbeat прискорено до 250мс, вікно ревізій звужено до 5 — інакше
  * SnapshotRequired довелося б «заробляти» 500 комітами.
+ *
+ * <p><b>03b:</b> live-пуш більше не локальний — тест live-дельти став
+ * наскрізним: REST → outbox → relay (тік руками) → Kafka → консюмер fan-out →
+ * gRPC-стрім. Relay-ПЛАНУВАЛЬНИК вимкнений свідомо: Spring кешує цей контекст
+ * живим до кінця JVM, і фоновий relay із доступним Kafka публікував би рядки
+ * спільного Postgres, поки ганяються outbox-тести, ламаючи їхні асерти на
+ * {@code published_at IS NULL}.
  */
 @SpringBootTest(properties = {
     "praporets.grpc.heartbeat-interval=250ms",
-    "praporets.grpc.revision-window=5"
+    "praporets.grpc.revision-window=5",
+    "praporets.outbox.relay.enabled=false"
 })
 @AutoConfigureMockMvc
 @AutoConfigureTestGrpcTransport
@@ -59,8 +65,17 @@ class ConfigGrpcStreamingTest {
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES = TestPostgres.INSTANCE;
 
+    @ServiceConnection
+    static final KafkaContainer KAFKA = TestKafka.INSTANCE;
+
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private OutboxRelay relay;
+
+    @Autowired
+    private KafkaListenerEndpointRegistry listenerRegistry;
 
     @Autowired
     private GrpcChannelFactory channels;
@@ -163,6 +178,24 @@ class ConfigGrpcStreamingTest {
         return meterRegistry.get("praporets_config_streams_active").gauge().value();
     }
 
+    /**
+     * 03b, камінь #1: консюмер із {@code latest} не побачить повідомлення,
+     * продюснуте ДО того, як йому роздали партиції — чекаємо assignment.
+     */
+    private void awaitFanoutAssigned() throws InterruptedException {
+        MessageListenerContainer container =
+            listenerRegistry.getListenerContainer("flag-changes-fanout");
+        assertThat(container).as("слухач flag-changes-fanout існує").isNotNull();
+        long deadline = System.currentTimeMillis() + 15_000;
+        while ((container.getAssignedPartitions() == null
+            || container.getAssignedPartitions().isEmpty())
+            && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        assertThat(container.getAssignedPartitions())
+            .as("консюмеру роздали партиції").isNotEmpty();
+    }
+
     // ------------------------------------------------------------ GetSnapshot
 
     @Test
@@ -238,8 +271,15 @@ class ConfigGrpcStreamingTest {
         // перший heartbeat = стрім зареєстровано; лише тепер зміна гарантовано
         // не провалиться в щілину «між підключенням і реєстрацією»
         awaitHeartbeat(updates);
+        awaitFanoutAssigned();
 
         toggle(env, flagKey, false);  // ревізія 2, комітиться по-справжньому
+        // 03b: пуш їде через Kafka; планувальник вимкнений — тік руками.
+        // Drain, а не один batch: наш рядок НАЙНОВІШИЙ, а relay бере
+        // найстаріші — попереду може стояти хвіст сусідніх тестів
+        while (relay.relayBatch() > 0) {
+            // публікуємо все до порожнього outbox
+        }
 
         ConfigUpdate update = nextNonHeartbeat(updates);
         assertThat(update.getPayloadCase()).isEqualTo(ConfigUpdate.PayloadCase.DELTA);

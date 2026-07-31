@@ -31,7 +31,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * ({@code relay.relayBatch()}), інакше фонові тіки зробили б асерти
  * расовими.
  */
-@SpringBootTest(properties = "praporets.outbox.relay.enabled=false")
+// fanout теж вимкнений (03b): relay-тести читають топік ВЛАСНИМИ консюмерами,
+// а фоновий слухач контексту тільки додавав би недетермінізму
+@SpringBootTest(properties = {
+    "praporets.outbox.relay.enabled=false",
+    "praporets.fanout.enabled=false"
+})
 @AutoConfigureMockMvc
 public abstract class AbstractOutboxTest {
 

@@ -22,6 +22,11 @@ spring:
       # relay чекає ack від брокера: без acks=all «опубліковано»
       # означало б лише «прийнято в сокет»
       acks: all
+    consumer:
+      # історію знає Postgres (catch-up при конекті edge робить assembleSince);
+      # консюмер fan-out потрібен тільки для live-змін — свіжа група не
+      # перечитує компактований топік при старті репліки
+      auto-offset-reset: latest
 
 praporets:
   grpc:
@@ -32,6 +37,11 @@ praporets:
       enabled: true
       poll-interval: 200ms
       batch-size: 100
+  fanout:
+    enabled: true
+    # fan-out = кожна репліка отримує ВСІ повідомлення → унікальна група на
+    # процес; покинуті групи Kafka прибирає за offsets.retention.minutes
+    group-id: cp-fanout-${random.uuid}
 
 
 management:
