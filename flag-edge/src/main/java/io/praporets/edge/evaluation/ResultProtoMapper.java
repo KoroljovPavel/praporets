@@ -1,8 +1,11 @@
 package io.praporets.edge.evaluation;
 
 import io.praporets.core.evaluation.EvaluationResult;
+import io.praporets.core.model.EvaluationContext;
 import io.praporets.grpc.evaluation.v1.EvaluateResponse;
 import jakarta.enterprise.context.ApplicationScoped;
+
+import java.util.Map;
 
 /**
  * Мапінг між proto-контрактом {@code praporets.evaluation.v1} і core —
@@ -27,7 +30,11 @@ public class ResultProtoMapper {
      */
     public io.praporets.core.model.EvaluationContext toCoreContext(
         io.praporets.grpc.evaluation.v1.EvaluationContext protoContext) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+
+        String userKey = protoContext.getUserKey();
+        Map<String, String> attributes = protoContext.getAttributesMap();
+
+        return new EvaluationContext(userKey, attributes);
     }
 
     /**
@@ -49,7 +56,22 @@ public class ResultProtoMapper {
      * @return готова proto-відповідь
      */
     public EvaluateResponse toResponse(EvaluationResult result, long revision) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+
+        EvaluateResponse.Builder response = EvaluateResponse.newBuilder()
+            .setFlagKey(result.flagKey())
+            .setReason(toProtoReason(result.reason()))
+            .setRevision(revision);
+
+        if (result.variantKey() != null)
+            response.setVariantKey(result.variantKey());
+
+        if (result.jsonValue() != null)
+            response.setJsonValue(result.jsonValue());
+
+        if (result.ruleId() != null)
+            response.setRuleId(result.ruleId());
+
+        return response.build();
     }
 
     /**
@@ -66,6 +88,12 @@ public class ResultProtoMapper {
      */
     public io.praporets.grpc.evaluation.v1.Reason toProtoReason(
         io.praporets.core.evaluation.Reason reason) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+        return switch (reason) {
+            case ROLLOUT -> io.praporets.grpc.evaluation.v1.Reason.ROLLOUT;
+            case DEFAULT -> io.praporets.grpc.evaluation.v1.Reason.DEFAULT;
+            case RULE_MATCH -> io.praporets.grpc.evaluation.v1.Reason.RULE_MATCH;
+            case FLAG_DISABLED -> io.praporets.grpc.evaluation.v1.Reason.FLAG_DISABLED;
+            case FLAG_NOT_FOUND -> io.praporets.grpc.evaluation.v1.Reason.FLAG_NOT_FOUND;
+        };
     }
 }

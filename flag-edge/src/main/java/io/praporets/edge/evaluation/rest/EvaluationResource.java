@@ -1,11 +1,23 @@
 package io.praporets.edge.evaluation.rest;
 
+import io.praporets.core.evaluation.EvaluationResult;
+import io.praporets.core.evaluation.Evaluator;
+import io.praporets.core.model.EvaluationContext;
+import io.praporets.edge.config.ConfigStore;
+import io.praporets.edge.evaluation.rest.exceptions.EnvironmentNotLoadedException;
+import io.praporets.edge.evaluation.rest.exceptions.UnknownEnvironmentException;
+import io.praporets.edge.evaluation.rest.exceptions.ValidationProblemMapper;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * REST-обчислення одного флага (E-03, V5): {@code POST /api/v1/evaluate}
@@ -34,10 +46,29 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/api/v1/evaluate")
 public class EvaluationResource {
 
+    @Inject
+    ConfigStore configStore;
+
+    @ConfigProperty(name = "praporets.edge.environment")
+    String environment;
+
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public EvaluateHttpResponse evaluate(@Valid EvaluateHttpRequest request) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+        if (!request.environmentKey().equals(environment)) {
+            throw new UnknownEnvironmentException(request.environmentKey());
+        }
+
+        Map<String, String> attributes = new HashMap<>();
+        if (request.context().attributes() != null) {
+            attributes.putAll(request.context().attributes());
+        }
+
+        ConfigStore.StoredConfig config = configStore.current().orElseThrow(() -> new EnvironmentNotLoadedException("Environment not loaded"));
+        EvaluationResult result = Evaluator.evaluate(config.config(), request.flagKey(),
+            new EvaluationContext(request.context().userKey(), attributes));
+
+        return new EvaluateHttpResponse(result.flagKey(), result.variantKey(), result.jsonValue(), result.reason().name(), result.ruleId(), config.revision());
     }
 }

@@ -1,8 +1,17 @@
 package io.praporets.edge.evaluation;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import io.praporets.core.evaluation.EvaluationResult;
+import io.praporets.core.evaluation.Evaluator;
+import io.praporets.core.model.EvaluationContext;
+import io.praporets.edge.config.ConfigStore;
 import io.praporets.grpc.evaluation.v1.*;
 import io.quarkus.grpc.GrpcService;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.util.List;
 
 /**
  * Гарячий шлях (E-03/E-04): обчислення флагів із пам'яті, без жодного
@@ -33,6 +42,15 @@ import io.quarkus.grpc.GrpcService;
 @GrpcService
 public class EvaluationGrpcService extends EvaluationServiceGrpc.EvaluationServiceImplBase {
 
+    @Inject
+    ConfigStore configStore;
+
+    @Inject
+    ResultProtoMapper resultProtoMapper;
+
+    @ConfigProperty(name = "praporets.edge.environment")
+    String environment;
+
     /**
      * Один флаг (E-03). Невідомий {@code flag_key} — НЕ помилка:
      * core поверне {@code FLAG_NOT_FOUND}-результат, він мапиться у звичайну
@@ -40,7 +58,34 @@ public class EvaluationGrpcService extends EvaluationServiceGrpc.EvaluationServi
      */
     @Override
     public void evaluate(EvaluateRequest request, StreamObserver<EvaluateResponse> responseObserver) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+        if (!request.getEnvironmentKey().equals(environment)) {
+            responseObserver.onError(Status.NOT_FOUND
+                .withDescription(String.format("Environment %s is not served by this edge", request.getEnvironmentKey()))
+                .asRuntimeException());
+            return;
+        }
+
+
+        if (request.getFlagKey().isBlank()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("Flag key is blank").asRuntimeException());
+            return;
+        }
+
+        if (request.getContext().getUserKey().isBlank()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("User key is blank").asRuntimeException());
+            return;
+        }
+
+        ConfigStore.StoredConfig storedConfig = configStore.current().orElse(null);
+        if (storedConfig == null) {
+            responseObserver.onError(Status.UNAVAILABLE.withDescription("Store not loaded").asRuntimeException());
+            return;
+        }
+
+        EvaluationResult evaluationResult = Evaluator.evaluate(storedConfig.config(), request.getFlagKey(),
+            new EvaluationContext(request.getContext().getUserKey(), request.getContext().getAttributesMap()));
+        responseObserver.onNext(resultProtoMapper.toResponse(evaluationResult, storedConfig.revision()));
+        responseObserver.onCompleted();
     }
 
     /**
@@ -52,6 +97,35 @@ public class EvaluationGrpcService extends EvaluationServiceGrpc.EvaluationServi
      */
     @Override
     public void evaluateAll(EvaluateAllRequest request, StreamObserver<EvaluateAllResponse> responseObserver) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+        if (!request.getEnvironmentKey().equals(environment)) {
+            responseObserver.onError(Status.NOT_FOUND
+                .withDescription(String.format("Environment %s is not served by this edge", request.getEnvironmentKey()))
+                .asRuntimeException());
+            return;
+        }
+
+        if (request.getContext().getUserKey().isBlank()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT.withDescription("User key is blank").asRuntimeException());
+            return;
+        }
+
+        ConfigStore.StoredConfig storedConfig = configStore.current().orElse(null);
+        if (storedConfig == null) {
+            responseObserver.onError(Status.UNAVAILABLE.withDescription("Store not loaded").asRuntimeException());
+            return;
+        }
+
+        List<EvaluationResult> evaluationResultList = Evaluator.evaluateAll(storedConfig.config(),
+            new EvaluationContext(request.getContext().getUserKey(), request.getContext().getAttributesMap()));
+        List<EvaluateResponse> evaluateResponseList = evaluationResultList.stream().map(evaluationResult ->
+            resultProtoMapper.toResponse(evaluationResult, storedConfig.revision())).toList();
+
+        EvaluateAllResponse responseBuilder = EvaluateAllResponse.newBuilder()
+            .addAllEvaluations(evaluateResponseList)
+            .setRevision(storedConfig.revision())
+            .build();
+
+        responseObserver.onNext(responseBuilder);
+        responseObserver.onCompleted();
     }
 }

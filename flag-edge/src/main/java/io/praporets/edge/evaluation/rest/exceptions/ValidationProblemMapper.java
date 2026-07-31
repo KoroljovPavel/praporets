@@ -1,4 +1,4 @@
-package io.praporets.edge.evaluation.rest;
+package io.praporets.edge.evaluation.rest.exceptions;
 
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.core.Response;
@@ -23,6 +23,10 @@ public class ValidationProblemMapper implements ExceptionMapper<ConstraintViolat
 
     @Override
     public Response toResponse(ConstraintViolationException exception) {
-        throw new UnsupportedOperationException("02e: твоя реалізація");
+        return Response
+            .status(Response.Status.BAD_REQUEST)
+            .type("application/problem+json")
+            .entity(ProblemDetail.ofConstraintViolationException(exception))
+            .build();
     }
 }
