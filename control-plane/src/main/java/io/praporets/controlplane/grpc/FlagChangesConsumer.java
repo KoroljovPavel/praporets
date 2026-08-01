@@ -1,9 +1,20 @@
 package io.praporets.controlplane.grpc;
 
+import com.google.protobuf.util.JsonFormat;
 import io.praporets.controlplane.common.KafkaTopics;
+import io.praporets.grpc.config.v1.ConfigDelta;
+import io.praporets.grpc.config.v1.ConfigUpdate;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * Fan-out (CP-10): консюмер {@code praporets.flag.changes.v1} у КОЖНІЙ
@@ -45,6 +56,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class FlagChangesConsumer {
 
+    private final JsonMapper jsonMapper;
+    private final ConfigStreamRegistry configStreamRegistry;
+
+    private static final Logger log = LoggerFactory.getLogger(FlagChangesConsumer.class);
+
+    public FlagChangesConsumer(JsonMapper jsonMapper, ConfigStreamRegistry configStreamRegistry) {
+        this.jsonMapper = jsonMapper;
+        this.configStreamRegistry = configStreamRegistry;
+    }
+
     @KafkaListener(
         id = "flag-changes-fanout",
         topics = KafkaTopics.FLAG_CHANGES,
@@ -52,6 +73,25 @@ public class FlagChangesConsumer {
         autoStartup = "${praporets.fanout.enabled:true}"
     )
     public void onFlagChange(ConsumerRecord<String, String> record) {
-        throw new UnsupportedOperationException("03b: твоя реалізація");
+        Header header = record.headers().lastHeader("schema-version");
+        if (header == null || !Arrays.equals(header.value(), "1".getBytes(StandardCharsets.UTF_8))) {
+            log.warn("Flag change received for unknown schema-version header");
+            return;
+        }
+        if (!configStreamRegistry.activeEnvironments().contains(record.key())) {
+            log.debug("Flag change received for unknown environment {}", record.key());
+            return;
+        }
+
+        try {
+            JsonNode rawPayload = jsonMapper.readTree(record.value());
+            long revision = rawPayload.get("revision").asLong();
+
+            ConfigDelta.Builder builder = ConfigDelta.newBuilder();
+            JsonFormat.parser().merge(rawPayload.get("delta").toString(), builder);
+            configStreamRegistry.publish(record.key(), ConfigUpdate.newBuilder().setRevision(revision).setDelta(builder.build()).build());
+        } catch (Exception e) {
+            log.error("Failed to process config change for environment {}, topic {}, partition {}, offset {}", record.key(), record.topic(), record.partition(), record.offset(), e);
+        }
     }
 }

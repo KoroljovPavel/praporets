@@ -4,10 +4,8 @@ package io.praporets.controlplane.service;
  * Подія «в середовищі відбулася зміна конфігурації з новою ревізією».
  *
  * <p>Публікується {@link RevisionRecorder#recordChange} <b>усередині</b>
- * транзакції через {@code ApplicationEventPublisher}; слухач
- * ({@code grpc/ConfigChangePublisher}) підписаний з фазою
- * {@code AFTER_COMMIT} — тому подія про відкочену транзакцію ніколи не
- * долетить до edge-стрімів.
+ * транзакції через {@code ApplicationEventPublisher}; консюмер fan-out
+ * ({@code grpc/FlagChangesConsumer}) підписаний на Kafka topic
  *
  * <p>Одна транзакція може дати кілька подій (rollback робить серію upsert-ів) —
  * після коміту вони обробляються по черзі, кожна зі своєю ревізією.

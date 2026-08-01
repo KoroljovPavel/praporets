@@ -63,7 +63,7 @@ import java.util.concurrent.TimeoutException;
 @Component
 public class OutboxRelay {
 
-    Logger log = LoggerFactory.getLogger(OutboxRelay.class);
+    private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
 
     private final OutboxRepository outboxRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;

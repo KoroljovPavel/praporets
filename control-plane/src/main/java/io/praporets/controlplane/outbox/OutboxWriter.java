@@ -19,8 +19,8 @@ import java.util.Optional;
 
 /**
  * Пише подію зміни в outbox У ТІЙ САМІЙ транзакції, що й сама зміна (CP-09,
- * K4). Дзеркальний близнюк {@code ConfigChangePublisher}: той слухає
- * {@code AFTER_COMMIT} і пушить у локальні стріми, цей — {@code BEFORE_COMMIT}
+ * K4). Дзеркальний близнюк {@code FlagChangesConsumer}: той слухає Kafka topic
+ * {@code KafkaTopics.FLAG_CHANGES} і пушить у локальні стріми, цей — {@code BEFORE_COMMIT}
  * і пише в БД. Відкат транзакції відкочує і outbox-рядок — атомарність
  * «зміна + подія» без розподілених транзакцій.
  *
