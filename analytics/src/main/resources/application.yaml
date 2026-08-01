@@ -24,6 +24,9 @@ spring:
     listener:
       # ack руками ПІСЛЯ коміту БД-транзакції процесора
       ack-mode: manual
+  mvc:
+    problemdetails:
+      enabled: true
 
 management:
   endpoints:
