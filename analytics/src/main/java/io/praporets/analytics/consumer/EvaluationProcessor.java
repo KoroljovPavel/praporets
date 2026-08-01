@@ -3,6 +3,9 @@ package io.praporets.analytics.consumer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 /**
  * Транзакційна обробка однієї події: ідемпотентний маркер + інкремент
  * агрегату В ОДНІЙ транзакції (G4). Виділено з листенера навмисно (G3):
@@ -27,8 +30,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class EvaluationProcessor {
 
+    private final EvaluationAggRepository evaluationAggRepository;
+
+    public EvaluationProcessor(EvaluationAggRepository evaluationAggRepository) {
+        this.evaluationAggRepository = evaluationAggRepository;
+    }
+
     @Transactional
     public void process(EvaluationEventPayload payload) {
-        throw new UnsupportedOperationException("03d-1: твоя реалізація");
+        if (!evaluationAggRepository.markProcessed(payload.evaluationId()) || payload.variantKey() == null)
+            return;
+
+        Instant window = payload.occurredAt().truncatedTo(ChronoUnit.MINUTES);
+        evaluationAggRepository.incrementAggregate(payload.environment(), payload.flagKey(), payload.variantKey(), window);
     }
 }

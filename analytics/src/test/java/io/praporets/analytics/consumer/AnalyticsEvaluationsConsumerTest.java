@@ -19,6 +19,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -75,8 +76,11 @@ class AnalyticsEvaluationsConsumerTest {
         assertThat(row.get("flag_key")).isEqualTo(flagOf(env));
         assertThat(row.get("variant_key")).isEqualTo("on");
         assertThat(((Number) row.get("eval_count")).longValue()).isEqualTo(1);
-        // вікно — початок хвилини EVENT time (G6), секунди обрізані
-        assertThat(row.get("window_start").toString()).contains("10:15:00");
+        // вікно — початок хвилини EVENT time (G6), секунди обрізані.
+        // Порівнюємо ІНСТАНТИ: toString() Timestamp-а рендериться в
+        // таймзоні JVM — рядковий асерт падав би поза UTC
+        assertThat(((java.sql.Timestamp) row.get("window_start")).toInstant())
+            .isEqualTo(Instant.parse("2026-08-01T10:15:00Z"));
 
         Long processed = jdbc.queryForObject(
             "SELECT count(*) FROM processed_event WHERE evaluation_id = ?", Long.class, evaluationId);

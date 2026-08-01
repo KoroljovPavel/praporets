@@ -1,8 +1,10 @@
 package io.praporets.analytics.consumer;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
@@ -33,13 +35,19 @@ import java.util.UUID;
 @Repository
 public class EvaluationAggRepository {
 
+    private final JdbcTemplate jdbcTemplate;
+
+    public EvaluationAggRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
     /**
      * Позначає подію обробленою.
      *
      * @return {@code true}, якщо подія нова; {@code false} — уже бачили
      */
     public boolean markProcessed(UUID evaluationId) {
-        throw new UnsupportedOperationException("03d-1: твоя реалізація");
+        return jdbcTemplate.update("insert into processed_event (evaluation_id) values (?) on conflict do nothing", evaluationId) == 1;
     }
 
     /**
@@ -48,6 +56,10 @@ public class EvaluationAggRepository {
      * @param windowStart початок хвилинного вікна (уже обрізаний до хвилини)
      */
     public void incrementAggregate(String environment, String flagKey, String variantKey, Instant windowStart) {
-        throw new UnsupportedOperationException("03d-1: твоя реалізація");
+        jdbcTemplate.update("""
+            insert into evaluation_agg (environment, flag_key, variant_key, window_start, eval_count, unique_users) values (?, ?, ?, ?, 1, 0)
+            on conflict (environment, flag_key, variant_key, window_start)
+            do update set eval_count = evaluation_agg.eval_count + 1
+            """, environment, flagKey, variantKey, windowStart.atOffset(ZoneOffset.UTC));
     }
 }

@@ -1,6 +1,13 @@
 package io.praporets.analytics.consumer;
 
+import io.praporets.analytics.common.KafkaTopics;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 /**
  * DLT-маршрутизація (G5, A-05): помилка обробки після ретраїв відправляє
@@ -30,4 +37,12 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class KafkaErrorHandlingConfig {
+
+    @Bean
+    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate, (record, exception) ->
+            new TopicPartition(KafkaTopics.FLAG_EVALUATIONS_DLT, 0));
+
+        return new DefaultErrorHandler(recoverer, new FixedBackOff(500L, 3L));
+    }
 }
