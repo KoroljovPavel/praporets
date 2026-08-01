@@ -12,6 +12,7 @@ dependencies {
     implementation(libs.quarkus.hibernate.validator)
     implementation(libs.quarkus.smallrye.health)
     implementation(libs.quarkus.micrometer.registry.prometheus)
+    implementation(libs.quarkus.kafka.client)
 
     implementation(project(":praporets-contracts"))
     implementation(project(":praporets-core"))
@@ -21,6 +22,7 @@ dependencies {
     testImplementation(libs.assertj)
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.kafka)
     testRuntimeOnly(libs.postgresql)
 }
 

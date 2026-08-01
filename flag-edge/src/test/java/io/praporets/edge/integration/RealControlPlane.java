@@ -37,6 +37,12 @@ import java.util.Map;
  * {@code dev}, флаг {@code checkout.new-flow} (BOOLEAN, variants on=true /
  * off=false), config: enabled, правило {@code r1: country IN [UA] → on},
  * без rollout.
+ *
+ * <p><b>03b:</b> у мережі також Kafka — після видалення локального
+ * publisher-а live-пуш їде ТІЛЬКИ через outbox → relay → топік → fanout-
+ * консюмер, тож без брокера пропагація мертва. Тест пропагації тепер
+ * наскрізний у найповнішому сенсі: REST → БД → Kafka → gRPC-стрім → edge.
+ * Kafka навмисно НЕ рестартиться у сценаріях outage CP — падає лише CP.
  */
 public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
 
@@ -49,6 +55,7 @@ public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
 
     private static Network network;
     private static PostgreSQLContainer<?> postgres;
+    private static org.testcontainers.kafka.KafkaContainer kafka;
     private static GenericContainer<?> controlPlane;
     private static int cpRestPort;
     private static int cpGrpcPort;
@@ -64,6 +71,14 @@ public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
             .withUsername("praporets")
             .withPassword("praporets");
         postgres.start();
+
+        // withListener: додатковий listener kafka:19092 для контейнерів
+        // цієї ж мережі (host-порт лишається для Ryuk/дебагу)
+        kafka = new org.testcontainers.kafka.KafkaContainer("apache/kafka:4.1.0")
+            .withNetwork(network)
+            .withNetworkAliases("kafka")
+            .withListener("kafka:19092");
+        kafka.start();
 
         cpRestPort = freePort();
         cpGrpcPort = freePort();
@@ -95,6 +110,7 @@ public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
             .withEnv("SPRING_DATASOURCE_URL", "jdbc:postgresql://postgres:5432/praporets")
             .withEnv("SPRING_DATASOURCE_USERNAME", "praporets")
             .withEnv("SPRING_DATASOURCE_PASSWORD", "praporets")
+            .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
             .waitingFor(Wait.forHttp("/actuator/health").forPort(8080)
                 .withStartupTimeout(Duration.ofMinutes(2)));
         // фіксовані host-порти: переживають stop()/start() контейнера (I2)
@@ -105,6 +121,7 @@ public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
     @Override
     public void stop() {
         if (controlPlane != null) controlPlane.stop();
+        if (kafka != null) kafka.stop();
         if (postgres != null) postgres.stop();
         if (network != null) network.close();
     }
