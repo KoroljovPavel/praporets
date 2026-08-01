@@ -1,15 +1,12 @@
 package io.praporets.controlplane.domain;
 
-import io.praporets.core.model.Bucket;
-import io.praporets.core.model.Clause;
-import io.praporets.core.model.Operator;
-import io.praporets.core.model.Rollout;
-import io.praporets.core.model.Rule;
-import java.util.List;
+import io.praporets.core.model.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,11 +65,14 @@ class JsonbMappingTest extends AbstractRepositoryTest {
     @Test
     void jsonb_columns_are_real_jsonb_not_text() {
         var environment = em.persist(new Environment("prod", "Production"));
-        em.persistAndFlush(new Segment(environment, "beta", CONDITIONS));
+        var segment = em.persistAndFlush(new Segment(environment, "beta", CONDITIONS));
 
-        // jsonb_typeof працює тільки на справжньому jsonb — на varchar/text цей запит впаде
+        // jsonb_typeof працює тільки на справжньому jsonb — на varchar/text цей запит впаде.
+        // WHERE id обов'язковий: спільний Postgres містить закомічені рядки
+        // не-транзакційних тестів (напр. ConfigGrpcStreamingTest)
         String conditionsType = jdbc.queryForObject(
-                "select jsonb_typeof(conditions) from segment", String.class);
+            "select jsonb_typeof(conditions) from segment where id = ?",
+            String.class, segment.getId());
 
         assertThat(conditionsType).isEqualTo("array");
     }
@@ -83,8 +83,10 @@ class JsonbMappingTest extends AbstractRepositoryTest {
         flag.addVariant(new Variant("on", "{\"color\":\"blue\",\"limit\":10}"));
         em.persistAndFlush(flag);
 
+        // WHERE flag_id — з тієї ж причини, що й у сусіднього тесту
         String valueType = jdbc.queryForObject(
-                "select jsonb_typeof(value) from variant", String.class);
+            "select jsonb_typeof(value) from variant where flag_id = ?",
+            String.class, flag.getId());
 
         assertThat(valueType).isEqualTo("object");
     }
