@@ -1,0 +1,32 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: analytics
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/praporets_analytics
+    username: praporets
+    password: praporets
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      # спільна група (репліки ділять партиції) + earliest (історія
+      # цінна — analytics доганяє все, накопичене до його старту).
+      # Контраст із fan-out CP: там унікальні групи + latest
+      group-id: analytics
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # ack руками ПІСЛЯ коміту БД-транзакції процесора
+      ack-mode: manual
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics

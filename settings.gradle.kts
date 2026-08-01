@@ -17,4 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "praporets"
 
-include("praporets-core", "praporets-contracts", "control-plane", "flag-edge")
+include("praporets-core", "praporets-contracts", "control-plane", "flag-edge", "analytics")

@@ -16,6 +16,7 @@ services:
       start_period: 10s
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/dev/postgres-init:/docker-entrypoint-initdb.d:ro
 
   kafka:
     image: apache/kafka:4.1.0
