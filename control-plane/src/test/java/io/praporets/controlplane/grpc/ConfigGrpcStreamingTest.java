@@ -281,7 +281,15 @@ class ConfigGrpcStreamingTest {
             // публікуємо все до порожнього outbox
         }
 
+        // at-least-once: рядок ревізії 1 (putInitialConfig) теж лежав у outbox
+        // неопублікованим, і drain віддає його ПІСЛЯ підписки — стрім легально
+        // бачить стару дельту перед новою. Edge дедупить за ревізією (02d);
+        // тест робить так само: скіпає все, що старіше за очікувану ревізію 2
         ConfigUpdate update = nextNonHeartbeat(updates);
+        while (update.getRevision() < 2) {
+            assertThat(update.getPayloadCase()).isEqualTo(ConfigUpdate.PayloadCase.DELTA);
+            update = nextNonHeartbeat(updates);
+        }
         assertThat(update.getPayloadCase()).isEqualTo(ConfigUpdate.PayloadCase.DELTA);
         assertThat(update.getRevision()).isEqualTo(2);
         assertThat(update.getDelta().getUpsertedFlagsCount()).isEqualTo(1);
