@@ -12,6 +12,10 @@ public final class KafkaTopics {
      */
     public static final String FLAG_CHANGES = "praporets.flag.changes.v1";
 
+    public static final String FLAG_EVALUATIONS = "praporets.flag.evaluations.v1";
+
+    public static final String FLAG_EVALUATIONS_DLT = "praporets.flag.evaluations.v1.dlt";
+
     private KafkaTopics() {
     }
 }

@@ -1,9 +1,28 @@
 package io.praporets.edge.events;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
+import io.quarkus.logging.Log;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.internals.RecordHeader;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.*;
 
 /**
  * Дренер буфера подій (E6): єдиний власник {@code KafkaProducer} і єдине
@@ -51,16 +70,161 @@ import jakarta.enterprise.event.Observes;
 @ApplicationScoped
 public class EvaluationEventPublisher {
 
+    @Inject
+    EvaluationEvents evaluationEvents;
+
+    @Inject
+    ObjectMapper objectMapper;
+
+    @Inject
+    MeterRegistry meterRegistry;
+
+    @ConfigProperty(name = "kafka.bootstrap.servers")
+    String bootstrapServers;
+
+    @ConfigProperty(name = "praporets.edge.events.enabled")
+    boolean eventsEnabled;
+
+    @ConfigProperty(name = "praporets.edge.events.batch-size")
+    int batchSize;
+
+    private static final byte[] SCHEMA_VERSION_1 = "1".getBytes(StandardCharsets.UTF_8);
+
+    private KafkaProducer<String, String> producer;
+
+    private final ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r);
+        t.setName("edge-events-drainer");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private volatile boolean stopped = false;
+    private Future<?> workerFuture;
+
     /**
      * Топік подій (спека §6.4); key = flagKey.
      */
     public static final String TOPIC = "praporets.flag.evaluations.v1";
 
     void onStart(@Observes StartupEvent event) {
-        // 03c: твоя реалізація (порожньо, НЕ UOE — див. JavaDoc)
+        if (!eventsEnabled) return;
+
+        Counter.builder(EvaluationEvents.DROPPED_METRIC).tag("reason", "send_failed").register(meterRegistry);
+
+        Properties props = new Properties();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 5100);
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
+        props.put(ProducerConfig.LINGER_MS_CONFIG, 100);
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 2000);
+        producer = new KafkaProducer<>(props);
+
+        workerFuture = singleThreadExecutor.submit(this::runLoop);
+    }
+
+    private void runLoop() {
+        List<EvaluationEvent> events = new ArrayList<>(batchSize);
+
+        while (!stopped && !Thread.currentThread().isInterrupted()) {
+            try {
+                processBatch(events);
+            } catch (InterruptedException e) {
+                Log.info("Drainer thread interrupted, shutting down...");
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                Log.error("Error while processing events", e);
+            } finally {
+                events.clear();
+            }
+        }
+    }
+
+    private void processBatch(List<EvaluationEvent> batch) throws InterruptedException {
+        EvaluationEvent first = evaluationEvents.poll(100);
+
+        if (first == null) return;
+
+        batch.add(first);
+
+        if (batchSize > 1) {
+            evaluationEvents.drainTo(batch, batchSize - 1);
+        }
+
+        for (EvaluationEvent event : batch) {
+            sendToKafka(event);
+        }
+    }
+
+    private long drainRemainingEvents() {
+        List<EvaluationEvent> remainder = new ArrayList<>(batchSize);
+        evaluationEvents.drainTo(remainder, Integer.MAX_VALUE);
+
+        if (remainder.isEmpty()) return 0;
+
+        Log.info(String.format("Draining final %s events from queue before shutdown...", remainder.size()));
+        for (EvaluationEvent event : remainder) {
+            sendToKafka(event);
+        }
+
+        return remainder.size();
+    }
+
+    private void sendToKafka(EvaluationEvent event) {
+        try {
+            String json = objectMapper.writeValueAsString(event);
+
+            ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC, event.flagKey(), json);
+            record.headers().add(new RecordHeader("schema-version", SCHEMA_VERSION_1));
+
+            producer.send(record, (metadata, exception) -> {
+                if (exception != null) {
+                    meterRegistry.counter(EvaluationEvents.DROPPED_METRIC, Tags.of(Tag.of("reason", "send_failed"))).increment();
+                    Log.warn(String.format("Failed to send event to kafka for flagKey=%s: %s", event.flagKey(), exception.getMessage()));
+                }
+            });
+        } catch (Exception e) {
+            meterRegistry.counter(EvaluationEvents.DROPPED_METRIC, Tags.of(Tag.of("reason", "send_failed"))).increment();
+            Log.warn(String.format("Failed to serialize or prepare event for flagKey=%s: %s", event.flagKey(), e.getMessage()));
+        }
     }
 
     void onStop(@Observes ShutdownEvent event) {
-        // 03c: твоя реалізація (порожньо, НЕ UOE — див. JavaDoc)
+        if (stopped || workerFuture == null) return;
+
+        Log.info("Stopping Evaluation Events Drainer worker...");
+
+        stopped = true;
+
+        try {
+            workerFuture.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            Log.warn("Worker thread did not finish within timeout, forcing cancel...");
+            workerFuture.cancel(true);
+        } catch (InterruptedException | ExecutionException e) {
+            Log.error("Error waiting for worker thread termination", e);
+            Thread.currentThread().interrupt();
+        }
+
+        long drainedOnShutDown = drainRemainingEvents();
+
+        try {
+            producer.flush();
+        } catch (Exception e) {
+            Log.warn("Error while flushing producer", e);
+        }
+
+        try {
+            producer.close();
+        } catch (Exception e) {
+            Log.warn("Error while closing producer", e);
+        }
+
+        Log.info(String.format("Evaluation Events Drainer stopped. Drained %s remaining events during shutdown sequence.", drainedOnShutDown));
+
+        singleThreadExecutor.shutdown();
     }
 }

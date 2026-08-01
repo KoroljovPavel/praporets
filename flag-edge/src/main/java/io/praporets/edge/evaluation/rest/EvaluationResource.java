@@ -7,6 +7,7 @@ import io.praporets.edge.config.ConfigStore;
 import io.praporets.edge.evaluation.rest.exceptions.EnvironmentNotLoadedException;
 import io.praporets.edge.evaluation.rest.exceptions.UnknownEnvironmentException;
 import io.praporets.edge.evaluation.rest.exceptions.ValidationProblemMapper;
+import io.praporets.edge.events.EvaluationEvents;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -49,6 +50,9 @@ public class EvaluationResource {
     @Inject
     ConfigStore configStore;
 
+    @Inject
+    EvaluationEvents evaluationEvents;
+
     @ConfigProperty(name = "praporets.edge.environment")
     String environment;
 
@@ -69,6 +73,7 @@ public class EvaluationResource {
         EvaluationResult result = Evaluator.evaluate(config.config(), request.flagKey(),
             new EvaluationContext(request.context().userKey(), attributes));
 
+        evaluationEvents.emit(result, config.revision(), request.context().userKey());
         return new EvaluateHttpResponse(result.flagKey(), result.variantKey(), result.jsonValue(), result.reason().name(), result.ruleId(), config.revision());
     }
 }

@@ -2,6 +2,7 @@ package io.praporets.controlplane.outbox;
 
 import io.praporets.controlplane.common.KafkaTopics;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
@@ -25,6 +26,24 @@ public class KafkaTopicsConfig {
             .partitions(3)
             .replicas(1)
             .compact()
+            .build();
+    }
+
+    @Bean
+    NewTopic flagEvaluationsTopic() {
+        return TopicBuilder.name(KafkaTopics.FLAG_EVALUATIONS)
+            .partitions(6)
+            .replicas(1)
+            .config(TopicConfig.RETENTION_MS_CONFIG, "86400000")
+            .build();
+    }
+
+    @Bean
+    NewTopic flagEvaluationsDLTTopic() {
+        return TopicBuilder.name(KafkaTopics.FLAG_EVALUATIONS_DLT)
+            .partitions(1)
+            .replicas(1)
+            .config(TopicConfig.RETENTION_MS_CONFIG, "604800000")
             .build();
     }
 }

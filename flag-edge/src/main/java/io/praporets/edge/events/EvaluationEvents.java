@@ -1,9 +1,21 @@
 package io.praporets.edge.events;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.praporets.core.evaluation.EvaluationResult;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Гарячий шлях подій (E-05): збирає {@link EvaluationEvent} із результату
@@ -36,6 +48,22 @@ import java.util.List;
 @ApplicationScoped
 public class EvaluationEvents {
 
+    @ConfigProperty(name = "praporets.edge.environment")
+    String environment;
+
+    @ConfigProperty(name = "praporets.edge.instance-id")
+    String instanceId;
+
+    MeterRegistry meterRegistry;
+
+    private final ArrayBlockingQueue<EvaluationEvent> events;
+
+    public EvaluationEvents(@ConfigProperty(name = "praporets.edge.events.buffer-size") int bufferSize, MeterRegistry meterRegistry) {
+        events = new ArrayBlockingQueue<>(bufferSize);
+        this.meterRegistry = meterRegistry;
+        Counter.builder(DROPPED_METRIC).tag("reason", "buffer_full").register(meterRegistry);
+    }
+
     /**
      * Ім'я лічильника втрат (E3); теги: {@code reason=buffer_full|send_failed}.
      */
@@ -52,7 +80,16 @@ public class EvaluationEvents {
      * @return {@code true}, якщо подія в буфері; {@code false} — втрачена
      */
     public boolean emit(EvaluationResult result, long revision, String userKey) {
-        throw new UnsupportedOperationException("03c: твоя реалізація");
+
+        boolean offer = events.offer(new EvaluationEvent(
+            Uuid7.generate(), Instant.now(), environment, result.flagKey(), result.variantKey(), result.reason().name(),
+            result.ruleId(), revision, getSha256(userKey), instanceId
+        ));
+
+        if (!offer)
+            meterRegistry.counter(DROPPED_METRIC, Tags.of(Tag.of("reason", "buffer_full"))).increment();
+
+        return offer;
     }
 
     /**
@@ -61,6 +98,26 @@ public class EvaluationEvents {
      * @return скільки подій злито
      */
     public int drainTo(List<EvaluationEvent> sink, int max) {
-        throw new UnsupportedOperationException("03c: твоя реалізація");
+        return events.drainTo(sink, max);
+    }
+
+    /**
+     *
+     * @param timeout in ms
+     * @return EvaluationEvent
+     * @throws InterruptedException
+     */
+    protected EvaluationEvent poll(long timeout) throws InterruptedException {
+        return events.poll(timeout, TimeUnit.MILLISECONDS);
+    }
+
+    private String getSha256(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hashBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Algorithm SHA-256 not found", e);
+        }
     }
 }

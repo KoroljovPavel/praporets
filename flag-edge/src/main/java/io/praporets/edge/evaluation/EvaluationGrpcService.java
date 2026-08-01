@@ -6,6 +6,7 @@ import io.praporets.core.evaluation.EvaluationResult;
 import io.praporets.core.evaluation.Evaluator;
 import io.praporets.core.model.EvaluationContext;
 import io.praporets.edge.config.ConfigStore;
+import io.praporets.edge.events.EvaluationEvents;
 import io.praporets.grpc.evaluation.v1.*;
 import io.quarkus.grpc.GrpcService;
 import jakarta.inject.Inject;
@@ -48,6 +49,9 @@ public class EvaluationGrpcService extends EvaluationServiceGrpc.EvaluationServi
     @Inject
     ResultProtoMapper resultProtoMapper;
 
+    @Inject
+    EvaluationEvents evaluationEvents;
+
     @ConfigProperty(name = "praporets.edge.environment")
     String environment;
 
@@ -84,6 +88,8 @@ public class EvaluationGrpcService extends EvaluationServiceGrpc.EvaluationServi
 
         EvaluationResult evaluationResult = Evaluator.evaluate(storedConfig.config(), request.getFlagKey(),
             new EvaluationContext(request.getContext().getUserKey(), request.getContext().getAttributesMap()));
+
+        evaluationEvents.emit(evaluationResult, storedConfig.revision(), request.getContext().getUserKey());
         responseObserver.onNext(resultProtoMapper.toResponse(evaluationResult, storedConfig.revision()));
         responseObserver.onCompleted();
     }
@@ -124,6 +130,10 @@ public class EvaluationGrpcService extends EvaluationServiceGrpc.EvaluationServi
             .addAllEvaluations(evaluateResponseList)
             .setRevision(storedConfig.revision())
             .build();
+
+        for (EvaluationResult evaluationResult : evaluationResultList) {
+            evaluationEvents.emit(evaluationResult, storedConfig.revision(), request.getContext().getUserKey());
+        }
 
         responseObserver.onNext(responseBuilder);
         responseObserver.onCompleted();
