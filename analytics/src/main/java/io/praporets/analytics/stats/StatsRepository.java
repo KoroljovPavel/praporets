@@ -1,8 +1,10 @@
 package io.praporets.analytics.stats;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 /**
@@ -26,6 +28,12 @@ import java.util.List;
 @Repository
 public class StatsRepository {
 
+    private final JdbcClient jdbcClient;
+
+    public StatsRepository(JdbcClient jdbcClient) {
+        this.jdbcClient = jdbcClient;
+    }
+
     /**
      * Рядок агрегату для збірки серій.
      */
@@ -39,6 +47,21 @@ public class StatsRepository {
      * @param to   ексклюзивна межа
      */
     public List<AggWindow> findWindows(String environment, String flagKey, Instant from, Instant to) {
-        throw new UnsupportedOperationException("03d-2: твоя реалізація");
+        return jdbcClient.sql("""
+                    select variant_key, window_start, eval_count, unique_users
+                    from evaluation_agg
+                    where environment = :env and flag_key = :flag_key and window_start >= :from and window_start < :to
+                    order by window_start
+                """)
+            .param("env", environment)
+            .param("flag_key", flagKey)
+            .param("from", from.atOffset(ZoneOffset.UTC))
+            .param("to", to.atOffset(ZoneOffset.UTC))
+            .query((rs, i) -> new AggWindow(
+                rs.getString("variant_key"),
+                rs.getTimestamp("window_start").toInstant(),
+                rs.getLong("eval_count"),
+                rs.getLong("unique_users")
+            )).list();
     }
 }

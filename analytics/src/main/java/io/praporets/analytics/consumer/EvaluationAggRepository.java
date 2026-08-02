@@ -55,11 +55,18 @@ public class EvaluationAggRepository {
      *
      * @param windowStart початок хвилинного вікна (уже обрізаний до хвилини)
      */
-    public void incrementAggregate(String environment, String flagKey, String variantKey, Instant windowStart) {
+    public void incrementAggregate(String environment, String flagKey, String variantKey, Instant windowStart, long uniqueDelta) {
         jdbcTemplate.update("""
-            insert into evaluation_agg (environment, flag_key, variant_key, window_start, eval_count, unique_users) values (?, ?, ?, ?, 1, 0)
+            insert into evaluation_agg (environment, flag_key, variant_key, window_start, eval_count, unique_users) values (?, ?, ?, ?, 1, ?)
             on conflict (environment, flag_key, variant_key, window_start)
-            do update set eval_count = evaluation_agg.eval_count + 1
-            """, environment, flagKey, variantKey, windowStart.atOffset(ZoneOffset.UTC));
+            do update set eval_count = evaluation_agg.eval_count + 1, unique_users = evaluation_agg.unique_users + excluded.unique_users
+            """, environment, flagKey, variantKey, windowStart.atOffset(ZoneOffset.UTC), uniqueDelta);
+    }
+
+    public boolean markUserSeen(String environment, String flagKey, String variantKey, Instant window, String userKeyHash) {
+        return jdbcTemplate.update("""
+                insert into evaluation_user (environment, flag_key, variant_key, window_start, user_key_hash)
+                values (?, ?, ?, ?, ?) on conflict do nothing
+            """, environment, flagKey, variantKey, window.atOffset(ZoneOffset.UTC), userKeyHash) == 1;
     }
 }

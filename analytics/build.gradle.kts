@@ -14,6 +14,7 @@ dependencies {
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
     implementation(libs.spring.boot.starter.actuator)
+    runtimeOnly(libs.micrometer.registry.prometheus)
     implementation(libs.spring.boot.starter.kafka)
     runtimeOnly(libs.postgresql)
 

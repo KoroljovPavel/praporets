@@ -1,5 +1,8 @@
 package io.praporets.analytics.consumer;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,9 +33,11 @@ import java.time.temporal.ChronoUnit;
 @Service
 public class EvaluationProcessor {
 
+    private final MeterRegistry meterRegistry;
     private final EvaluationAggRepository evaluationAggRepository;
 
-    public EvaluationProcessor(EvaluationAggRepository evaluationAggRepository) {
+    public EvaluationProcessor(EvaluationAggRepository evaluationAggRepository, MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
         this.evaluationAggRepository = evaluationAggRepository;
     }
 
@@ -42,6 +47,17 @@ public class EvaluationProcessor {
             return;
 
         Instant window = payload.occurredAt().truncatedTo(ChronoUnit.MINUTES);
-        evaluationAggRepository.incrementAggregate(payload.environment(), payload.flagKey(), payload.variantKey(), window);
+        long uniqueDelta = evaluationAggRepository.markUserSeen(payload.environment(), payload.flagKey(), payload.variantKey(), window, payload.userKeyHash()) ? 1 : 0;
+        evaluationAggRepository.incrementAggregate(payload.environment(), payload.flagKey(), payload.variantKey(), window, uniqueDelta);
+
+        meterRegistry.counter("praporets_evaluations_total",
+                Tags.of(
+                    Tag.of("environment", payload.environment()),
+                    Tag.of("flag", payload.flagKey()),
+                    Tag.of("variant", payload.variantKey()),
+                    Tag.of("reason", payload.reason())
+
+                ))
+            .increment();
     }
 }
