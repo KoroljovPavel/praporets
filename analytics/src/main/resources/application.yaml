@@ -28,6 +28,18 @@ spring:
     problemdetails:
       enabled: true
 
+praporets:
+  analytics:
+    deviation:
+      enabled: true
+      # |actual − expected| понад це → WARN (частки, не проценти: 0.05 = 5 п.п.)
+      threshold: 0.05
+      # I4: менші вибірки не перевіряються — біноміальний шум
+      min-sample: 100
+      check-interval: 30s
+      # I1: unique group на процес + earliest — compacted топік читається цілком
+      group-id: analytics-rollout-${random.uuid}
+
 management:
   endpoints:
     web:

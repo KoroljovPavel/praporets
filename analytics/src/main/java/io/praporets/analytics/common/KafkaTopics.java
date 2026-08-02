@@ -17,6 +17,12 @@ public final class KafkaTopics {
      */
     public static final String FLAG_EVALUATIONS_DLT = "praporets.flag.evaluations.v1.dlt";
 
+    /**
+     * Compacted зміни конфігурації: джерело очікуваних ваг
+     * rollout. Ключ — environmentKey.
+     */
+    public static final String FLAG_CHANGES = "praporets.flag.changes.v1";
+
     private KafkaTopics() {
     }
 }
