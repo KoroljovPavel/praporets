@@ -1,0 +1,18 @@
+# ЕТАЛОН: конфігурація середовища env-змінними поверх application.yaml
+# (relaxed binding Spring: SPRING_DATASOURCE_URL → spring.datasource.url).
+# В образі НЕМАЄ k8s-профілю — той самий образ їде в будь-яке середовище,
+# відрізняється лише ConfigMap (12-factor).
+#
+# Пароль у ConfigMap — свідомий спрощений компроміс (локальний kind,
+# credentials і так відкриті у values); Secret — у беклог до 04b.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: control-plane-config
+  labels:
+    { { - include "praporets.labels" . | nindent 4 } }
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/{{ .Values.postgres.database }}
+  SPRING_DATASOURCE_USERNAME: { { .Values.postgres.username | quote } }
+  SPRING_DATASOURCE_PASSWORD: { { .Values.postgres.password | quote } }
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: praporets
+description: >-
+  Distributed feature flag platform: control-plane (Spring Boot),
+  flag-edge (Quarkus native), analytics + власні мінімальні Postgres/Kafka
+  (один вузол, без HA — свідомо поза скоупом).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

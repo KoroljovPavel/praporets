@@ -1,0 +1,24 @@
+# ЕТАЛОН: NodePort-сервіс. Один Service обслуговує ОБИДВІ ролі:
+# - всередині кластера це звичайний ClusterIP — edge ходить на
+#   control-plane:9090 (K8s-native discovery);
+# - назовні фіксовані nodePort-и пробиті на localhost через
+#   extraPortMappings у infra/kind/cluster.yaml — саме ці URL-и друкує make up.
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-plane
+  labels:
+    { { - include "praporets.labels" . | nindent 4 } }
+spec:
+  type: NodePort
+  selector:
+    { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 } }
+  ports:
+    - name: http
+      port: { { .Values.controlPlane.http.port } }
+      targetPort: http
+      nodePort: { { .Values.controlPlane.http.nodePort } }
+    - name: grpc
+      port: { { .Values.controlPlane.grpc.port } }
+      targetPort: grpc
+      nodePort: { { .Values.controlPlane.grpc.nodePort } }

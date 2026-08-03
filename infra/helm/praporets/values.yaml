@@ -1,0 +1,44 @@
+# Дефолти «prod-подібні»; усе локальне (kind) перекриває values-local.yaml.
+# Ключі згруповані по сервісах — шаблони НЕ вигадують власних values,
+# усе, що потрібно template-ам (і еталонним, і твоїм), уже тут.
+
+image:
+  registry: ghcr.io
+  owner: koroljovpavel
+  # спільний тег для всіх трьох сервісних образів; локальна збірка = "local"
+  tag: local
+  pullPolicy: IfNotPresent
+
+controlPlane:
+  replicas: 1
+  http:
+    port: 8080
+    nodePort: 30080
+  grpc:
+    port: 9090
+    nodePort: 30090
+
+flagEdge:
+  replicas: 3
+  # unified server (02f): REST і gRPC на одному порту
+  http:
+    port: 8081
+    nodePort: 30081
+
+analytics:
+  replicas: 1
+  http:
+    port: 8082
+    nodePort: 30082
+
+# Один вузол, без HA (скоуп). Ті самі образи, що в compose.yaml —
+# у kind і в `make dev` поведінка інфраструктури ідентична.
+postgres:
+  image: postgres:17-alpine
+  database: praporets
+  username: praporets
+  password: praporets
+  storage: 1Gi
+
+kafka:
+  image: apache/kafka:4.1.0

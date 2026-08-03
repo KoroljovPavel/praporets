@@ -1,0 +1,36 @@
+# ЕТАЛОН кроку 04a: мінімальний Deployment. Свідомо БЕЗ probes, resources,
+# securityContext тощо — це прод-манiфести кроку 04b, тут «кластер живий».
+# flag-edge- і analytics-deployment пишуться за цим зразком (відмінності —
+# у спеці кроку, розділ «Твоя робота»).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-plane
+  labels:
+    { { - include "praporets.labels" . | nindent 4 } }
+      { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 } }
+spec:
+  replicas: { { .Values.controlPlane.replicas } }
+  selector:
+    matchLabels:
+      { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 6 } }
+  template:
+    metadata:
+      labels:
+        { { - include "praporets.labels" . | nindent 8 } }
+          { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 8 } }
+    spec:
+      containers:
+        - name: control-plane
+          image: { { include "praporets.image" (dict "Values" .Values "name" "control-plane") } }
+          imagePullPolicy: { { .Values.image.pullPolicy } }
+          ports:
+            - name: http
+              containerPort: { { .Values.controlPlane.http.port } }
+            - name: grpc
+              containerPort: { { .Values.controlPlane.grpc.port } }
+          # уся конфігурація середовища — одним envFrom із ConfigMap:
+          # deployment не знає ІМЕН змінних, лише звідки їх узяти
+          envFrom:
+            - configMapRef:
+                name: control-plane-config

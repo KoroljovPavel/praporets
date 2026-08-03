@@ -1,0 +1,24 @@
+# kind-кластер praporets: 1 control-plane + 2 worker.
+# Два worker-и — не декорація: у 04b topologySpreadConstraints розкидає
+# flag-edge по нодах, і на одно-нодовому кластері це неможливо перевірити.
+#
+# extraPortMappings пробивають фіксовані NodePort-и сервісів (див.
+# values.yaml чарта) на localhost — без ingress-контролера (поза скоупом).
+# Мапінги живуть на control-plane ноді: NodePort відкритий на КОЖНІЙ ноді,
+# тож достатньо одного «тунелю».
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: praporets
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080 # control-plane REST
+        hostPort: 30080
+      - containerPort: 30090 # control-plane gRPC (ConfigService)
+        hostPort: 30090
+      - containerPort: 30081 # flag-edge, unified server: REST + gRPC на одному порту
+        hostPort: 30081
+      - containerPort: 30082 # analytics REST
+        hostPort: 30082
+  - role: worker
+  - role: worker

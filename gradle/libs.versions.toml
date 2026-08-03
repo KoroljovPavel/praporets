@@ -10,12 +10,14 @@ grpc = "1.79.0"
 protobufPlugin = "0.10.0"
 quarkus = "3.33.3"
 cucumber = "7.34.6"
+jib = "3.5.4"
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobufPlugin" }
 quarkus = { id = "io.quarkus", version.ref = "quarkus" }
+jib = { id = "com.google.cloud.tools.jib", version.ref = "jib" }
 
 [libraries]
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
@@ -51,6 +53,7 @@ quarkus-hibernate-validator = { module = "io.quarkus:quarkus-hibernate-validator
 quarkus-smallrye-health = { module = "io.quarkus:quarkus-smallrye-health" }
 quarkus-micrometer-registry-prometheus = { module = "io.quarkus:quarkus-micrometer-registry-prometheus" }
 quarkus-kafka-client = { module = "io.quarkus:quarkus-kafka-client" }
+quarkus-container-image-jib = { module = "io.quarkus:quarkus-container-image-jib" }
 quarkus-junit5 = { module = "io.quarkus:quarkus-junit5" }
 rest-assured = { module = "io.rest-assured:rest-assured" }
 

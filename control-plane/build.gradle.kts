@@ -2,6 +2,7 @@ plugins {
     id("java")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.jib)
 }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
@@ -41,3 +42,15 @@ dependencies {
 }
 
 tasks.withType<Test> { useJUnitPlatform() }
+
+// Reproducible-образ без Dockerfile. `jibDockerBuild` кладе
+// образ у локальний Docker daemon (звідти його забирає `kind load`);
+// push у ghcr.io — справа CI, не локальної збірки. База — UBI runtime:
+// distroless для Java 25 не існує, аргументи в steps/04a-kind-helm-jib.md (I1)
+jib {
+    from { image = "registry.access.redhat.com/ubi9/openjdk-25-runtime:latest" }
+    to { image = "ghcr.io/koroljovpavel/praporets-control-plane:local" }
+    container {
+        ports = listOf("8080", "9090") // REST + gRPC (метадані, не публікація)
+    }
+}

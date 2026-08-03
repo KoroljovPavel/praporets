@@ -13,6 +13,11 @@ dependencies {
     implementation(libs.quarkus.smallrye.health)
     implementation(libs.quarkus.micrometer.registry.prometheus)
     implementation(libs.quarkus.kafka.client)
+    // Образ через Jib-екстеншен (версією керує quarkus-bom). Активується
+    // ТІЛЬКИ таском `imageBuild` / -Dquarkus.container-image.build=true —
+    // звичайний build не чіпає. Native-бінарник збирає Gradle (container-build)
+    // Jib лише пакує його в образ — без Dockerfile
+    implementation(libs.quarkus.container.image.jib)
 
     implementation(project(":praporets-contracts"))
     implementation(project(":praporets-core"))

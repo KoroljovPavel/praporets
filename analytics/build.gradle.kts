@@ -2,6 +2,7 @@ plugins {
     id("java")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.jib)
 }
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
@@ -27,3 +28,12 @@ dependencies {
 }
 
 tasks.withType<Test> { useJUnitPlatform() }
+
+// Дзеркало конфігурації control-plane — деталі у steps/04a-kind-helm-jib.md (I1)
+jib {
+    from { image = "registry.access.redhat.com/ubi9/openjdk-25-runtime:latest" }
+    to { image = "ghcr.io/koroljovpavel/praporets-analytics:local" }
+    container {
+        ports = listOf("8082")
+    }
+}

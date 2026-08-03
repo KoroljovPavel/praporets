@@ -1,0 +1,10 @@
+# Перекриття для kind (`make up` подає цей файл через -f).
+# (ризики): values-local зі зменшеними репліками, щоб стек
+# вміщався на ноутбуці.
+image:
+  # образ вантажиться через `kind load docker-image`, у реєстрі тега local
+  # немає — Never падає одразу зі зрозумілою помилкою, а не ImagePullBackOff
+  pullPolicy: Never
+
+flagEdge:
+  replicas: 2
