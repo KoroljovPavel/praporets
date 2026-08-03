@@ -36,6 +36,10 @@ tasks.test {
     onlyIf("e2e запускається тільки явним ':e2e:test' або 'make test-e2e'") {
         e2eExplicitlyRequested
     }
+    // Дзеркало гейта вище: якщо e2e покликали явно — ганяємо ПО-СПРАВЖНЬОМУ.
+    // Інакше незмінений код = UP-TO-DATE за 1с без жодного контейнера, а
+    // результат e2e залежить не лише від коду (Docker, таймінги, флакі)
+    outputs.upToDateWhen { false }
 
     if (e2eExplicitlyRequested) {
         dependsOn(":control-plane:bootJar", ":flag-edge:quarkusBuild")
