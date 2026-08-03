@@ -1,8 +1,10 @@
 package io.praporets.analytics.deviation;
 
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 /**
@@ -23,6 +25,12 @@ import java.util.List;
 @Repository
 public class DeviationRepository {
 
+    private final JdbcClient jdbcClient;
+
+    public DeviationRepository(JdbcClient jdbcClient) {
+        this.jdbcClient = jdbcClient;
+    }
+
     /**
      * Рядок вікна з ненульовим rollout-лічильником.
      */
@@ -30,6 +38,18 @@ public class DeviationRepository {
     }
 
     public List<RolloutCount> rolloutCounts(Instant windowStart) {
-        throw new UnsupportedOperationException("03d-3: твоя реалізація");
+        return jdbcClient.sql("""
+                    select environment, flag_key, variant_key, rollout_count
+                    from evaluation_agg
+                    where window_start = :window and rollout_count > 0
+                """)
+            .param("window", windowStart.atOffset(ZoneOffset.UTC))
+            .query((rs, i) -> new RolloutCount(
+                rs.getString("environment"),
+                rs.getString("flag_key"),
+                rs.getString("variant_key"),
+                rs.getLong("rollout_count")
+            ))
+            .list();
     }
 }

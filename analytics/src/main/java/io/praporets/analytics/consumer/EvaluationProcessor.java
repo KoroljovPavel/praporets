@@ -47,8 +47,9 @@ public class EvaluationProcessor {
             return;
 
         Instant window = payload.occurredAt().truncatedTo(ChronoUnit.MINUTES);
+        long rolloutDelta = payload.reason().equals("ROLLOUT") && payload.ruleId() == null ? 1 : 0;
         long uniqueDelta = evaluationAggRepository.markUserSeen(payload.environment(), payload.flagKey(), payload.variantKey(), window, payload.userKeyHash()) ? 1 : 0;
-        evaluationAggRepository.incrementAggregate(payload.environment(), payload.flagKey(), payload.variantKey(), window, uniqueDelta);
+        evaluationAggRepository.incrementAggregate(payload.environment(), payload.flagKey(), payload.variantKey(), window, uniqueDelta, rolloutDelta);
 
         meterRegistry.counter("praporets_evaluations_total",
                 Tags.of(
