@@ -1,9 +1,13 @@
 package io.praporets.e2e;
 
-import io.cucumber.java.PendingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.cucumber.java.uk.Дано;
 import io.cucumber.java.uk.Коли;
 import io.cucumber.java.uk.Тоді;
+
+import java.time.Duration;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Кроки {@code propagation.feature}: зміна флага доїжджає до ВСІХ
@@ -22,6 +26,9 @@ import io.cucumber.java.uk.Тоді;
  */
 public class PropagationSteps {
 
+    private long toggleNanos;
+    private long revisionBeforeToggle;
+
     /**
      * Піднімає (ліниво) спільний стек {@link E2eStack#ensureStarted()} і
      * перевіряє передумову: {@code replicas} == {@link E2eStack#EDGE_COUNT}
@@ -31,8 +38,9 @@ public class PropagationSteps {
      */
     @Дано("запущений стек із {int} edge-репліками, підписаними на середовище {string}")
     public void запущений_стек(int replicas, String environment) {
-        // TODO: реалізуй крок (ensureStarted + звірка топології з константами стека)
-        throw new PendingException();
+        E2eStack.ensureStarted();
+        assertThat(environment).as("Environment повинен збігатися з тестовим").isEqualTo(E2eStack.ENVIRONMENT);
+        assertThat(replicas).as("Кількість реплік повинна збігатися з кількістю тестових").isEqualTo(E2eStack.EDGE_COUNT);
     }
 
     /**
@@ -45,8 +53,21 @@ public class PropagationSteps {
      */
     @Дано("флаг {string} вимкнено")
     public void флаг_вимкнено(String flagKey) {
-        // TODO: реалізуй крок (toggle(false) + бар'єрний await по всіх репліках)
-        throw new PendingException();
+        assertThat(flagKey)
+            .as("Ключ прапора повинен співпадати з тестовим")
+            .isEqualTo(E2eStack.FLAG_KEY);
+
+        E2eStack.toggleFlag(false);
+
+        for (int i = 0; i < E2eStack.EDGE_COUNT; i++) {
+            int node = i;
+            E2eStack.await("Прапор на репліці %d повинен стати false.".formatted(i), Duration.ofSeconds(60).toMillis(),
+                () -> {
+                    JsonNode response = E2eStack.edgeEvaluate(node, "UA");
+                    return response.get("reason").asText().equals("FLAG_DISABLED") &&
+                        response.get("variantKey").asText().equals("off");
+                });
+        }
     }
 
     /**
@@ -57,8 +78,14 @@ public class PropagationSteps {
      */
     @Коли("оператор вмикає флаг {string}")
     public void оператор_вмикає_флаг(String flagKey) {
-        // TODO: реалізуй крок (ревізія до + toggle(true) + старт таймера)
-        throw new PendingException();
+        assertThat(flagKey)
+            .as("Ключ прапора повинен співпадати з тестовим")
+            .isEqualTo(E2eStack.FLAG_KEY);
+
+        revisionBeforeToggle = E2eStack.currentCpRevision();
+
+        E2eStack.toggleFlag(true);
+        toggleNanos = System.nanoTime();
     }
 
     /**
@@ -72,8 +99,20 @@ public class PropagationSteps {
      */
     @Тоді("всі {int} edge-репліки за {int} секунду звітують флаг як увімкнений")
     public void всі_репліки_звітують_увімкнений(int replicas, int seconds) {
-        // TODO: реалізуй крок (await до deadline = момент toggle + seconds)
-        throw new PendingException();
+        assertThat(replicas).as("Кількість реплік повинна збігатися з кількістю тестових").isEqualTo(E2eStack.EDGE_COUNT);
+
+        for (int i = 0; i < E2eStack.EDGE_COUNT; i++) {
+            int node = i;
+            long elapsedTime = System.nanoTime() - toggleNanos;
+            Duration remainingBudget = Duration.ofSeconds(seconds).minus(Duration.ofNanos(elapsedTime));
+
+            E2eStack.await("Прапор на репліці %d повинен стати true.".formatted(i), remainingBudget.toMillis(),
+                () -> {
+                    JsonNode response = E2eStack.edgeEvaluate(node, "UA");
+                    return response.get("reason").asText().equals("RULE_MATCH") &&
+                        response.get("variantKey").asText().equals("on");
+                });
+        }
     }
 
     /**
@@ -83,7 +122,12 @@ public class PropagationSteps {
      */
     @Тоді("кожна відповідь несе нову ревізію середовища")
     public void кожна_відповідь_несе_нову_ревізію() {
-        // TODO: реалізуй крок (revision == БД і > ревізії до зміни, по всіх репліках)
-        throw new PendingException();
+        for (int i = 0; i < E2eStack.EDGE_COUNT; i++) {
+            long replicaRevision = E2eStack.edgeEvaluate(i, "UA").get("revision").asLong();
+            assertThat(replicaRevision)
+                .as("репліка %d: ревізія має збігатися з БД і бути новішою за %d (до toggle)", i, revisionBeforeToggle)
+                .isEqualTo(E2eStack.currentCpRevision())
+                .isGreaterThan(revisionBeforeToggle);
+        }
     }
 }

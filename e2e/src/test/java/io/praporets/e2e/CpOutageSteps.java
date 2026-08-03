@@ -1,9 +1,13 @@
 package io.praporets.e2e;
 
-import io.cucumber.java.PendingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.cucumber.java.uk.Дано;
 import io.cucumber.java.uk.Коли;
 import io.cucumber.java.uk.Тоді;
+
+import java.time.Duration;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Кроки {@code cp-outage.feature}: edge переживає падіння control-plane і
@@ -20,16 +24,29 @@ import io.cucumber.java.uk.Тоді;
  */
 public class CpOutageSteps {
 
+    private long revisionBeforeDown;
+    private double baselineBeforeDown;
+
     /**
-     * {@link E2eStack#ensureStarted()}; запам'ятай у поля поточну ревізію
-     * репліки 0 ({@code edgeEvaluate(0, "UA").get("revision")}) і baseline
-     * {@link E2eStack#edgeMetric edgeMetric(0, STALENESS_METRIC)}. Стек уже
-     * дочекався readiness — конфігурація гарантовано завантажена.
+     * {@link E2eStack#ensureStarted()}; далі — синхронізаційний бар'єр
+     * (камінь №4 спеки): {@code await} (60с), доки ревізія репліки 0
+     * ({@code edgeEvaluate(0, "UA").get("revision")}) не дорівняється
+     * {@link E2eStack#currentCpRevision()} — попередній сценарій
+     * (concurrent-edits) робить PUT config і НЕ чекає доїзду дельти до
+     * edge; без бар'єра ревізія, знята тут, гонить із дельтою в польоті
+     * і Тоді-асерт «та сама ревізія» флакає. ПІСЛЯ бар'єра запам'ятай у
+     * поля ревізію і baseline {@link E2eStack#edgeMetric edgeMetric(0,
+     * STALENESS_METRIC)}.
      */
     @Дано("edge-репліка із завантаженою конфігурацією")
     public void edge_репліка_із_завантаженою_конфігурацією() {
-        // TODO: реалізуй крок (ensureStarted + зафіксуй ревізію і baseline staleness)
-        throw new PendingException();
+        E2eStack.ensureStarted();
+
+        E2eStack.await("Репліка 0 має наздогнати ревізю БД перед падінням CP", Duration.ofSeconds(60).toMillis(),
+            () -> E2eStack.edgeEvaluate(0, "UA").get("revision").asLong() == E2eStack.currentCpRevision());
+
+        revisionBeforeDown = E2eStack.edgeEvaluate(0, "UA").get("revision").asLong();
+        baselineBeforeDown = E2eStack.edgeMetric(0, E2eStack.STALENESS_METRIC);
     }
 
     /**
@@ -38,8 +55,7 @@ public class CpOutageSteps {
      */
     @Коли("control-plane стає недоступним")
     public void control_plane_стає_недоступним() {
-        // TODO: реалізуй крок
-        throw new PendingException();
+        E2eStack.stopControlPlane();
     }
 
     /**
@@ -50,14 +66,25 @@ public class CpOutageSteps {
      */
     @Тоді("edge-репліка далі успішно обчислює флаги")
     public void edge_репліка_далі_обчислює() {
-        // TODO: реалізуй крок (evaluate → 200, результат і ревізія як до падіння)
-        throw new PendingException();
+        JsonNode body = E2eStack.edgeEvaluate(0, "UA");
+
+        assertThat(body.get("revision").asLong())
+            .as("Edge повинен відповідати тією ж ревізією що і перед падінням")
+            .isEqualTo(revisionBeforeDown);
+        assertThat(body.get("reason").asText())
+            .as("Edge повинен відповідати тією самою причиною що і перед падінням")
+            .isEqualTo("RULE_MATCH");
+        assertThat(body.get("variantKey").asText())
+            .as("Edge повинен відповідати ти самим варіантом що і перед падінням")
+            .isEqualTo("on");
     }
 
     /**
-     * {@code await} (дедлайн ~10с), доки {@code edgeMetric(0, STALENESS_METRIC)}
-     * не стане строго більшим за baseline з Дано-кроку — вік конфігурації
-     * росте, бо стрім мертвий і жоден sync його не скидає.
+     * {@code await} (дедлайн 20с — понад heartbeat-інтервал 15с: heartbeat
+     * між зняттям baseline і падінням міг скинути staleness у нуль, і рости
+     * до baseline метриці доведеться заново), доки {@code edgeMetric(0,
+     * STALENESS_METRIC)} не стане строго більшим за baseline з Дано-кроку —
+     * вік конфігурації росте, бо стрім мертвий і жоден sync його не скидає.
      *
      * <p>Нюанс чесності: staleness росте і при живому CP (між heartbeat-ами,
      * до 15с) — тому асертимо «більше за baseline», а не «більше за нуль».
@@ -66,8 +93,8 @@ public class CpOutageSteps {
      */
     @Тоді("метрика застарілості конфігурації зростає")
     public void метрика_застарілості_зростає() {
-        // TODO: реалізуй крок (await: staleness > baseline)
-        throw new PendingException();
+        E2eStack.await("Метріка більша з збережену перед падінням", Duration.ofSeconds(20).toMillis(),
+            () -> E2eStack.edgeMetric(0, E2eStack.STALENESS_METRIC) > baselineBeforeDown);
     }
 
     /**
@@ -77,8 +104,7 @@ public class CpOutageSteps {
      */
     @Коли("control-plane оживає")
     public void control_plane_оживає() {
-        // TODO: реалізуй крок
-        throw new PendingException();
+        E2eStack.startControlPlane();
     }
 
     /**
@@ -93,7 +119,25 @@ public class CpOutageSteps {
      */
     @Тоді("edge-репліка перепідключається і наздоганяє актуальну ревізію")
     public void edge_репліка_наздоганяє() {
-        // TODO: реалізуй крок (toggle → await ревізії; відкат toggle → await по всіх репліках)
-        throw new PendingException();
+        E2eStack.toggleFlag(false);
+
+        E2eStack.await("Зміни прапора повинні примінитись після підняття", Duration.ofSeconds(60).toMillis(),
+            () -> {
+                JsonNode result = E2eStack.edgeEvaluate(0, "UA");
+                return result.get("revision").asLong() == E2eStack.currentCpRevision() &&
+                    result.get("reason").asText().equals("FLAG_DISABLED");
+            });
+
+        E2eStack.toggleFlag(true);
+
+        for (int i = 0; i < E2eStack.EDGE_COUNT; i++) {
+            int node = i;
+            E2eStack.await("Прапор на репліці %d повинен бути true.".formatted(i), Duration.ofSeconds(60).toMillis(),
+                () -> {
+                    JsonNode response = E2eStack.edgeEvaluate(node, "UA");
+                    return response.get("reason").asText().equals("RULE_MATCH") &&
+                        response.get("variantKey").asText().equals("on");
+                });
+        }
     }
 }

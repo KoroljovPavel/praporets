@@ -1,9 +1,21 @@
 package io.praporets.e2e;
 
-import io.cucumber.java.PendingException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.cucumber.java.uk.Дано;
 import io.cucumber.java.uk.Коли;
 import io.cucumber.java.uk.Тоді;
+
+import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Кроки {@code concurrent-edits.feature}: оптимістичне блокування не дає
@@ -27,6 +39,11 @@ import io.cucumber.java.uk.Тоді;
  */
 public class ConcurrentEditsSteps {
 
+    private long version = 0L;
+    private JsonNode configNode;
+
+    private HttpResponse<String> secondResponse;
+
     /**
      * {@link E2eStack#ensureStarted()}; {@link E2eStack#getConfig()} → 200,
      * запам'ятай у поля {@code version} і тіло конфігурації — обидва
@@ -35,8 +52,18 @@ public class ConcurrentEditsSteps {
      */
     @Дано("два оператори завантажили конфігурацію флага {string} однієї версії")
     public void два_оператори_завантажили_конфігурацію(String flagKey) {
-        // TODO: реалізуй крок (GET config, зафіксуй version + тіло)
-        throw new PendingException();
+        assertThat(flagKey).as("Ключ прапора повинен співпадати з тестовим").isEqualTo(E2eStack.FLAG_KEY);
+
+        E2eStack.ensureStarted();
+        HttpResponse<String> response = E2eStack.getConfig();
+
+        assertThat(response.statusCode())
+            .as("GET config мав повернути 200; тіло: %s", response.body())
+            .isEqualTo(200);
+
+        configNode = E2eStack.json(response.body());
+        version = configNode.get("version").asLong();
+
     }
 
     /**
@@ -47,8 +74,11 @@ public class ConcurrentEditsSteps {
      */
     @Коли("перший оператор зберігає свою зміну")
     public void перший_оператор_зберігає() {
-        // TODO: реалізуй крок (PUT з If-Match = прочитана версія → 200)
-        throw new PendingException();
+        String body = updateBody(List.of("UA", "PL"));
+        HttpResponse<String> response = E2eStack.putConfig(body, version);
+        assertThat(response.statusCode())
+            .as("перший PUT з If-Match %d мав пройти; тіло: %s", version, response.body())
+            .isEqualTo(200);
     }
 
     /**
@@ -58,8 +88,8 @@ public class ConcurrentEditsSteps {
      */
     @Коли("другий оператор зберігає іншу зміну з тією самою версією")
     public void другий_оператор_зберігає_з_тією_самою_версією() {
-        // TODO: реалізуй крок (PUT зі старою версією, відповідь у поле)
-        throw new PendingException();
+        String body = updateBody(List.of("UA", "DE"));
+        secondResponse = E2eStack.putConfig(body, version);
     }
 
     /**
@@ -69,8 +99,17 @@ public class ConcurrentEditsSteps {
      */
     @Тоді("запит другого оператора відхилено з конфліктом")
     public void запит_другого_відхилено_з_конфліктом() {
-        // TODO: реалізуй крок (409 + problem+json)
-        throw new PendingException();
+        assertThat(secondResponse.statusCode())
+            .as("Другий PUT зі stale-версією %d має отримати 409; тіло %s", version, secondResponse.body())
+            .isEqualTo(409);
+        assertThat(secondResponse.headers().firstValue("Content-Type").orElse(""))
+            .as("Другий PUT зі stale-версією %d в заголовку має бути Content-Type: application/problem+json", version)
+            .startsWith("application/problem+json");
+
+        JsonNode response = E2eStack.json(secondResponse.body());
+        assertThat(response.get("status").asInt())
+            .as("Другий PUT зі stale-версією %d в тілі також має повертати 409", version)
+            .isEqualTo(409);
     }
 
     /**
@@ -80,7 +119,48 @@ public class ConcurrentEditsSteps {
      */
     @Тоді("збереженою лишається зміна першого оператора")
     public void збереженою_лишається_зміна_першого() {
-        // TODO: реалізуй крок (GET: values першого, version == стара + 1)
-        throw new PendingException();
+        JsonNode response = E2eStack.json(E2eStack.getConfig().body());
+
+        Set<String> countries = response.findParents("attribute").stream()
+            .filter(node -> "country".equals(node.path("attribute").asText()))
+            .map(node -> node.get("values"))
+            .flatMap(valueNode -> valueNode.isArray()
+                ? StreamSupport.stream(valueNode.spliterator(), false).map(JsonNode::asText)
+                : Stream.of(valueNode.asText())
+            )
+            .collect(Collectors.toSet());
+
+        assertThat(countries)
+            .as("Другий PUT зі stale-версією %d не повинен переписувати значення", version)
+            .containsExactlyInAnyOrder("UA", "PL");
+        assertThat(response.get("version").asLong())
+            .as("Другий PUT зі stale-версією %d, версія має зрости рівно на 1 при першому PUT", version)
+            .isEqualTo(version + 1);
+    }
+
+    private String updateBody(List<String> countries) {
+
+        JsonMapper jsonMapper = new JsonMapper();
+        JsonNode updatedRules = configNode.path("rules").deepCopy();
+
+        StreamSupport.stream(updatedRules.spliterator(), false)
+            .filter(record -> "r1".equals(record.path("id").asText()))
+            .flatMap(record -> StreamSupport.stream(record.path("clauses").spliterator(), false))
+            .filter(clause -> "country".equals(clause.path("attribute").asText()))
+            .findFirst()
+            .ifPresent(clause -> ((ObjectNode) clause).set("values", jsonMapper.valueToTree(countries)));
+
+        ObjectNode request = jsonMapper.createObjectNode();
+        request.set("enabled", configNode.get("enabled"));
+        request.set("defaultVariant", configNode.get("defaultVariant"));
+        request.set("offVariant", configNode.get("offVariant"));
+        request.set("rules", updatedRules);
+        request.set("rollout", configNode.get("rollout"));
+
+        try {
+            return jsonMapper.writeValueAsString(request);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
