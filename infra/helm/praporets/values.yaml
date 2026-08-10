@@ -26,6 +26,7 @@ flagEdge:
     nodePort: 30081
 
 analytics:
+  database: praporets_analytics
   replicas: 1
   http:
     port: 8082

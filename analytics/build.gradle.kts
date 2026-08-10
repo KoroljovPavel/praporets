@@ -31,9 +31,21 @@ tasks.withType<Test> { useJUnitPlatform() }
 
 // Дзеркало конфігурації control-plane — деталі у steps/04a-kind-helm-jib.md (I1)
 jib {
-    from { image = "registry.access.redhat.com/ubi9/openjdk-25-runtime:latest" }
+    from {
+        image = "registry.access.redhat.com/ubi9/openjdk-25-runtime:latest"
+        // платформа = архітектура машини збірки (пояснення — control-plane/build.gradle.kts)
+        platforms {
+            platform {
+                os = "linux"
+                architecture = if (System.getProperty("os.arch") in listOf("aarch64", "arm64")) "arm64" else "amd64"
+            }
+        }
+    }
     to { image = "ghcr.io/koroljovpavel/praporets-analytics:local" }
     container {
         ports = listOf("8082")
     }
+    // явний docker-шлях для демона з IDE-PATH (пояснення — control-plane)
+    File("/usr/local/bin/docker").takeIf { it.exists() }
+        ?.let { dockerClient { executable = it.absolutePath } }
 }

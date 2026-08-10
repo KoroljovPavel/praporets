@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    { { - include "praporets.labels" . | nindent 4 } }
+      { { - include "praporets.selectorLabels" (dict "name" "postgres") | nindent 4 } }
+spec:
+  clusterIP: None
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+  selector:
+    { { - include "praporets.selectorLabels" (dict "name" "postgres") | nindent 4 } }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  labels:
+    { { - include "praporets.labels" . | nindent 4 } }
+data:
+  # Той самий SQL, що в infra/dev/postgres-init/01-analytics-database.sql —
+  # у kind і в `make dev` поведінка інфраструктури ідентична.
+  01-analytics-database.sql: |
+    CREATE DATABASE praporets_analytics OWNER {{.Values.postgres.username }};
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    { { - include "praporets.labels" . | nindent 4 } }
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      { { - include "praporets.selectorLabels" (dict "name" "postgres") | nindent 6 } }
+  template:
+    metadata:
+      labels:
+        { { - include "praporets.selectorLabels" (dict "name" "postgres") | nindent 8 } }
+    spec:
+      containers:
+        - name: postgres
+          image: { { .Values.postgres.image } }
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: { { .Values.postgres.database | quote } }
+            - name: POSTGRES_USER
+              value: { { .Values.postgres.username | quote } }
+            - name: POSTGRES_PASSWORD
+              value: { { .Values.postgres.password | quote } }
+            # Камінь №5: initdb відмовляється ініціалізувати непорожній
+            # каталог. Деякі провізіонери кладуть у корінь тому lost+found,
+            # тому дані — у підкаталозі, а том монтується рівнем вище.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - { { .Values.postgres.username | quote } }
+                - -d
+                - { { .Values.postgres.database | quote } }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - { { .Values.postgres.username | quote } }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: initdb
+          configMap:
+            name: postgres-initdb
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: { { .Values.postgres.storage } }

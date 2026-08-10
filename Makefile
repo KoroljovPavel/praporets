@@ -19,6 +19,17 @@ else
 EDGE_FLAGS :=
 endif
 
+# Платформа образів = архітектура машини (дефолт Jib — amd64 НЕЗАЛЕЖНО від
+# хоста: на Apple Silicon це Rosetta-емуляція для JVM-образів і зламаний
+# native-edge — arm64-бінарник в amd64-базі). CP/analytics рахують те саме
+# в своїх jib{}-блоках; Quarkus-у передаємо явно
+UNAME_M := $(shell uname -m)
+ifneq (,$(filter $(UNAME_M),arm64 aarch64))
+JIB_PLATFORM := linux/arm64/v8
+else
+JIB_PLATFORM := linux/amd64
+endif
+
 .PHONY: dev dev-down test-e2e images kind-up kind-load up down urls
 
 dev:
@@ -33,7 +44,7 @@ test-e2e:
 # (не :flag-edge:build — той тягне повільні інтеграційні тести).
 images:
 	./gradlew :control-plane:jibDockerBuild :analytics:jibDockerBuild
-	./gradlew :flag-edge:imageBuild $(EDGE_FLAGS)
+	./gradlew :flag-edge:imageBuild $(EDGE_FLAGS) -Dquarkus.jib.platforms=$(JIB_PLATFORM)
 
 kind-up:
 	@kind get clusters 2>/dev/null | grep -qx $(KIND_CLUSTER) \
