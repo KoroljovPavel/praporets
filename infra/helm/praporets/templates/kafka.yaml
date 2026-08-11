@@ -3,8 +3,8 @@ kind: Service
 metadata:
   name: kafka
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
-      { { - include "praporets.selectorLabels" (dict "name" "kafka") | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
+      {{- include "praporets.selectorLabels" (dict "name" "kafka") | nindent 4 }}
 spec:
   clusterIP: None
   ports:
@@ -12,28 +12,28 @@ spec:
       port: 9092
       targetPort: kafka
   selector:
-    { { - include "praporets.selectorLabels" (dict "name" "kafka") | nindent 4 } }
+    {{- include "praporets.selectorLabels" (dict "name" "kafka") | nindent 4 }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kafka
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
 spec:
   serviceName: kafka
   replicas: 1
   selector:
     matchLabels:
-      { { - include "praporets.selectorLabels" (dict "name" "kafka") | nindent 6 } }
+      {{- include "praporets.selectorLabels" (dict "name" "kafka") | nindent 6 }}
   template:
     metadata:
       labels:
-        { { - include "praporets.selectorLabels" (dict "name" "kafka") | nindent 8 } }
+        {{- include "praporets.selectorLabels" (dict "name" "kafka") | nindent 8 }}
     spec:
       containers:
         - name: kafka
-          image: { { .Values.kafka.image } }
+          image: {{ .Values.kafka.image }}
           ports:
             - name: kafka
               containerPort: 9092

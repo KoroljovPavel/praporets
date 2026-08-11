@@ -8,17 +8,17 @@ kind: Service
 metadata:
   name: control-plane
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
 spec:
   type: NodePort
   selector:
-    { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 } }
+    {{- include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 }}
   ports:
     - name: http
-      port: { { .Values.controlPlane.http.port } }
+      port: {{ .Values.controlPlane.http.port }}
       targetPort: http
-      nodePort: { { .Values.controlPlane.http.nodePort } }
+      nodePort: {{ .Values.controlPlane.http.nodePort }}
     - name: grpc
-      port: { { .Values.controlPlane.grpc.port } }
+      port: {{ .Values.controlPlane.grpc.port }}
       targetPort: grpc
-      nodePort: { { .Values.controlPlane.grpc.nodePort } }
+      nodePort: {{ .Values.controlPlane.grpc.nodePort }}

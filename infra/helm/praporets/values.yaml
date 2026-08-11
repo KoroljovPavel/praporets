@@ -1,6 +1,11 @@
 # Дефолти «prod-подібні»; усе локальне (kind) перекриває values-local.yaml.
 # Ключі згруповані по сервісах — шаблони НЕ вигадують власних values,
 # усе, що потрібно template-ам (і еталонним, і твоїм), уже тут.
+#
+# 04b: додано resources / probes / terminationGracePeriodSeconds для кожного
+# сервісу, pdb / hpa / topologySpread для flag-edge. securityContext у values
+# НЕ виноситься — він однаковий для всіх сервісних подів і живе хелпером
+# у _helpers.tpl (безпека — не «настроюване» середовищем).
 
 image:
   registry: ghcr.io
@@ -17,13 +22,83 @@ controlPlane:
   grpc:
     port: 9090
     nodePort: 30090
+  # Заміряти після прогону через kubectl top pods і за потреби підтюнити:
+  # requests — «скільки треба завжди» (scheduler), limits — «стеля» (OOM/throttle).
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
+  # Тайминги probes; ШЛЯХИ ендпойнтів — у шаблонах (вони частина контракту
+  # застосунку, не середовища). startup покриває Flyway-міграції на старті:
+  # failureThreshold × periodSeconds = вікно, за яке под МУСИТЬ ожити
+  # (24 × 5s = 2 хв), і лише потім вмикаються liveness/readiness.
+  probes:
+    startup:
+      periodSeconds: 5
+      failureThreshold: 24
+    readiness:
+      periodSeconds: 5
+      failureThreshold: 3
+    liveness:
+      periodSeconds: 10
+      failureThreshold: 3
+  # Узгоджено з graceful shutdown Boot (рішення I4):
+  # 15s lifecycle-фаза + 3s gRPC grace + запас на Kafka-консюмери < 30s.
+  terminationGracePeriodSeconds: 30
 
 flagEdge:
-  replicas: 3
   # unified server (02f): REST і gRPC на одному порту
   http:
     port: 8081
     nodePort: 30081
+  # replicas тут НЕМАЄ свідомо (04b): масштабом володіє HPA — spec.replicas
+  # у Deployment змушував би кожен helm upgrade скидати кількість подів
+  # до значення з values, воюючи з autoscaler-ом.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      # native-у вистачило б ~128Mi; запас — щоб fast-path `make up EDGE=jvm`
+      # (04a, I2) не впирався в OOMKill. Заміряти обидва через kubectl top pods.
+      memory: 256Mi
+  probes:
+    readiness:
+      periodSeconds: 5
+      failureThreshold: 3
+    liveness:
+      periodSeconds: 10
+      failureThreshold: 3
+    # startup-probe немає: native стартує за ~0.1s, «довго вантажиться»
+    # для edge означає «чекає снапшот від CP» — це саме readiness (02c).
+  # Узгоджено з quarkus.shutdown.timeout=10s (рішення I4): 10s на дренаж + запас.
+  terminationGracePeriodSeconds: 15
+  pdb:
+    # спека §13.2; звідси ж мінімум 3 репліки (рішення I6) — інакше drain
+    # не може евіктнути жоден под
+    minAvailable: 2
+  hpa:
+    minReplicas: 3
+    maxReplicas: 5
+    # частка від resources.requests.cpu, не від ліміту
+    cpuUtilizationPercent: 70
+    # Кастомна метрика RPS (спека §13.2) вимагає prometheus-adapter —
+    # з'являється у 04c разом із Prometheus. Тут — заготовлене місце:
+    # шаблон рендерить Pods-метрику тільки при enabled=true.
+    rps:
+      enabled: false
+      metric: praporets_edge_evaluations_per_second
+      target: 500
+  topologySpread:
+    maxSkew: 1
+    # ScheduleAnyway для kind: два worker-и — під час drain одного ноди
+    # DoNotSchedule заблокував би перепланування і перетворив drain на
+    # deadlock із PDB. У кластері із запасом нод — DoNotSchedule.
+    whenUnsatisfiable: ScheduleAnyway
 
 analytics:
   database: praporets_analytics
@@ -31,15 +106,54 @@ analytics:
   http:
     port: 8082
     nodePort: 30082
+  resources:
+    requests:
+      cpu: 200m
+      memory: 448Mi
+    limits:
+      cpu: 1000m
+      memory: 640Mi
+  probes:
+    startup:
+      periodSeconds: 5
+      failureThreshold: 24
+    readiness:
+      periodSeconds: 5
+      failureThreshold: 3
+    liveness:
+      periodSeconds: 10
+      failureThreshold: 3
+  terminationGracePeriodSeconds: 30
 
 # Один вузол, без HA (скоуп). Ті самі образи, що в compose.yaml —
 # у kind і в `make dev` поведінка інфраструктури ідентична.
+# 04b: resources — так; повний securityContext-hardening StatefulSet-ів —
+# свідомо ні (рішення I8): postgres-entrypoint стартує root-ом і сам
+# скидає привілеї, боротьба з цим нічого не демонструє.
 postgres:
   image: postgres:17-alpine
   database: praporets
   username: praporets
   password: praporets
   storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 kafka:
   image: apache/kafka:4.1.0
+  # Дефолтний heap apache/kafka — «-Xmx1G -Xms1G»: без явного KAFKA_HEAP_OPTS
+  # limit нижче ~1.2Gi гарантує OOMKill під навантаженням. Тому heap
+  # затискається явно і limit рахується від нього (рішення I8).
+  heapOpts: "-Xmx512m -Xms512m"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 640Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi

@@ -3,26 +3,26 @@ kind: Deployment
 metadata:
   name: flag-edge
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
-      { { - include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
+      {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 4 }}
 spec:
-  replicas: { { .Values.flagEdge.replicas } }
+  replicas: {{ .Values.flagEdge.replicas }}
   selector:
     matchLabels:
-      { { - include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 6 } }
+      {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 6 }}
   template:
     metadata:
       labels:
-        { { - include "praporets.labels" . | nindent 8 } }
-          { { - include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 8 } }
+        {{- include "praporets.labels" . | nindent 8 }}
+          {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 8 }}
     spec:
       containers:
         - name: flag-edge
-          image: { { include "praporets.image" (dict "Values" .Values "name" "flag-edge") } }
-          imagePullPolicy: { { .Values.image.pullPolicy } }
+          image: {{ include "praporets.image" (dict "Values" .Values "name" "flag-edge") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: { { .Values.flagEdge.http.port } }
+              containerPort: {{ .Values.flagEdge.http.port }}
           # уся конфігурація середовища — одним envFrom із ConfigMap:
           # deployment не знає ІМЕН змінних, лише звідки їх узяти
           envFrom:

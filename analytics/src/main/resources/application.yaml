@@ -7,6 +7,10 @@ spring:
   threads:
     virtual:
       enabled: true
+  # 04b/I4: graceful shutdown (дефолт Boot 4) затиснутий до 15s — фаза
+  # зупинки Kafka-листенерів вписується в terminationGracePeriodSeconds=30
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
   datasource:
     url: jdbc:postgresql://localhost:5432/praporets_analytics
     username: praporets
@@ -41,6 +45,11 @@ praporets:
       group-id: analytics-rollout-${random.uuid}
 
 management:
+  # 04b: /actuator/health/{liveness,readiness} для k8s-probes (див. CP)
+  endpoint:
+    health:
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:

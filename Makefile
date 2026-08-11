@@ -30,7 +30,7 @@ else
 JIB_PLATFORM := linux/amd64
 endif
 
-.PHONY: dev dev-down test-e2e images kind-up kind-load up down urls
+.PHONY: dev dev-down test-e2e images kind-up metrics-server kind-load seed-env up down urls
 
 dev:
 	docker compose up -d --wait
@@ -53,13 +53,32 @@ kind-up:
 kind-load:
 	kind load docker-image $(IMAGES) --name $(KIND_CLUSTER)
 
-up: kind-up images kind-load
+# metrics-server (04b, рішення I1): metrics.k8s.io для HPA за CPU —
+# kind його з коробки не має. Манiфест запінений локально
+# (infra/kind/metrics-server.yaml, v0.9.0 + --kubelet-insecure-tls);
+# apply ідемпотентний, тому викликається на кожен up.
+metrics-server:
+	kubectl apply -f infra/kind/metrics-server.yaml
+	kubectl -n kube-system rollout status deployment/metrics-server --timeout=120s
+
+# Демо-сід (04b, рішення I7): readiness edge = «снапшот завантажено» (02c),
+# а снапшот environment-а, якого немає в БД, — це NOT_FOUND у retry-циклі.
+# На свіжому кластері БЕЗ environment `dev` rollout status flag-edge не
+# завершився б ніколи. 201 = створено, 409 = уже існує (ідемпотентність).
+seed-env:
+	@code=$$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:30080/api/v1/environments \
+		-H 'Content-Type: application/json' -d '{"key":"dev","name":"Dev"}'); \
+	case $$code in 201|409) echo "environment dev: HTTP $$code (ok)";; \
+	*) echo "environment dev: HTTP $$code — CP не готовий?" >&2; exit 1;; esac
+
+up: kind-up metrics-server images kind-load
 	helm upgrade --install praporets $(CHART) \
 		--namespace $(NS) --create-namespace \
 		-f $(CHART)/values-local.yaml
 	kubectl -n $(NS) rollout status statefulset/postgres --timeout=180s
 	kubectl -n $(NS) rollout status statefulset/kafka --timeout=180s
 	kubectl -n $(NS) rollout status deployment/control-plane --timeout=300s
+	@$(MAKE) --no-print-directory seed-env
 	kubectl -n $(NS) rollout status deployment/flag-edge --timeout=300s
 	kubectl -n $(NS) rollout status deployment/analytics --timeout=300s
 	@$(MAKE) --no-print-directory urls

@@ -3,26 +3,26 @@ kind: Deployment
 metadata:
   name: analytics
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
-      { { - include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
+      {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 }}
 spec:
-  replicas: { { .Values.analytics.replicas } }
+  replicas: {{ .Values.analytics.replicas }}
   selector:
     matchLabels:
-      { { - include "praporets.selectorLabels" (dict "name" "analytics") | nindent 6 } }
+      {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 6 }}
   template:
     metadata:
       labels:
-        { { - include "praporets.labels" . | nindent 8 } }
-          { { - include "praporets.selectorLabels" (dict "name" "analytics") | nindent 8 } }
+        {{- include "praporets.labels" . | nindent 8 }}
+          {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 8 }}
     spec:
       containers:
         - name: analytics
-          image: { { include "praporets.image" (dict "Values" .Values "name" "analytics") } }
-          imagePullPolicy: { { .Values.image.pullPolicy } }
+          image: {{ include "praporets.image" (dict "Values" .Values "name" "analytics") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: { { .Values.analytics.http.port } }
+              containerPort: {{ .Values.analytics.http.port }}
           # уся конфігурація середовища — одним envFrom із ConfigMap:
           # deployment не знає ІМЕН змінних, лише звідки їх узяти
           envFrom:

@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: flag-edge-config
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
 data:
   QUARKUS_GRPC_CLIENTS_CONFIG_HOST: control-plane
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092

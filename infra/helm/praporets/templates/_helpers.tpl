@@ -30,3 +30,34 @@ Selector незмінний після створення Deployment — том�
 {{- define "praporets.selectorLabels" -}}
 app.kubernetes.io/name: {{ .name }}
 {{- end }}
+
+{{/*
+securityContext сервісних подів (04b, рішення I3) — однаковий для всіх
+трьох сервісів, тому хелпер, а не values: безпека — не «настроюване»
+середовищем. runAsUser НЕ задається: UID приходить з образу (UBI
+openjdk-runtime — 185; native-образ edge отримує 185 через
+quarkus.jib.user) — runAsNonRoot лише ПЕРЕВІРЯЄ його, і под із
+образом-root чесно падає CreateContainerConfigError замість тихо
+працювати від root.
+
+Pod-рівень: {{ include "praporets.podSecurityContext" . | nindent 6 }}
+*/}}
+{{- define "praporets.podSecurityContext" -}}
+securityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+{{- end }}
+
+{{/*
+Контейнерний рівень: {{ include "praporets.containerSecurityContext" . | nindent 10 }}
+readOnlyRootFilesystem вимагає emptyDir на /tmp (рішення I2):
+Tomcat/Boot пише туди work-каталог, Vert.x/Quarkus — vertx-cache.
+*/}}
+{{- define "praporets.containerSecurityContext" -}}
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+{{- end }}

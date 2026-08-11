@@ -1,36 +1,89 @@
-# ЕТАЛОН кроку 04a: мінімальний Deployment. Свідомо БЕЗ probes, resources,
-# securityContext тощо — це прод-манiфести кроку 04b, тут «кластер живий».
-# flag-edge- і analytics-deployment пишуться за цим зразком (відмінності —
-# у спеці кроку, розділ «Твоя робота»).
+# ЕТАЛОН кроку 04b: production-hardened Deployment. Кожен блок
+# прокоментований — коментарі є частиною спеки кроку; flag-edge- і
+# analytics-deployment пишуться за цим зразком (відмінності — у спеці,
+# розділ «Твоя робота»).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: control-plane
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
-      { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
+    {{- include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 }}
 spec:
-  replicas: { { .Values.controlPlane.replicas } }
+  replicas: {{ .Values.controlPlane.replicas }}
   selector:
     matchLabels:
-      { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 6 } }
+      {{- include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 6 }}
   template:
     metadata:
       labels:
-        { { - include "praporets.labels" . | nindent 8 } }
-          { { - include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 8 } }
+        {{- include "praporets.labels" . | nindent 8 }}
+        {{- include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 8 }}
     spec:
+      # Узгоджений із graceful shutdown застосунку (I4): Boot 4 глушиться
+      # graceful за замовчуванням; фаза затиснута до 15s
+      # (spring.lifecycle.timeout-per-shutdown-phase), вічні StreamConfig-стріми
+      # обрізаються за 3s (spring.grpc.server.shutdown.grace-period — інакше
+      # КОЖЕН рестарт CP чекав би повні 30s дефолту, стріми ж не завершуються
+      # самі). 15+3+запас на Kafka-фази < 30 — SIGKILL не настає.
+      terminationGracePeriodSeconds: {{ .Values.controlPlane.terminationGracePeriodSeconds }}
+      # runAsNonRoot + seccomp; UID 185 приходить з UBI-образу (I3)
+      {{- include "praporets.podSecurityContext" . | nindent 6 }}
       containers:
         - name: control-plane
-          image: { { include "praporets.image" (dict "Values" .Values "name" "control-plane") } }
-          imagePullPolicy: { { .Values.image.pullPolicy } }
+          image: {{ include "praporets.image" (dict "Values" .Values "name" "control-plane") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # drop ALL + readOnlyRootFilesystem; ціна read-only кореня —
+          # emptyDir на /tmp нижче (I2)
+          {{- include "praporets.containerSecurityContext" . | nindent 10 }}
           ports:
             - name: http
-              containerPort: { { .Values.controlPlane.http.port } }
+              containerPort: {{ .Values.controlPlane.http.port }}
             - name: grpc
-              containerPort: { { .Values.controlPlane.grpc.port } }
+              containerPort: {{ .Values.controlPlane.grpc.port }}
           # уся конфігурація середовища — одним envFrom із ConfigMap:
           # deployment не знає ІМЕН змінних, лише звідки їх узяти
           envFrom:
             - configMapRef:
                 name: control-plane-config
+          # requests = гарантія scheduler-у, limits = стеля (OOMKill/throttle).
+          # Числа — стартові оцінки, звіряються з kubectl top pods (04b DoD).
+          resources:
+            {{- toYaml .Values.controlPlane.resources | nindent 12 }}
+          # Три probes із РІЗНИМ змістом (спека §13.2):
+          # startup — «застосунок ще ПІДНІМАЄТЬСЯ»: Flyway-міграції на
+          # старті можуть тривати десятки секунд, і поки startup не пройде,
+          # liveness вимкнений — інакше kubelet вбивав би под посеред
+          # міграції (04a/I5 лікується саме тут, а не initContainer-ами).
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: {{ .Values.controlPlane.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.controlPlane.probes.startup.failureThreshold }}
+          # readiness — «можна слати трафік»: Boot у k8s (probes.enabled)
+          # публікує ReadinessState; DOWN → под виводиться з endpoints
+          # Service, але НЕ рестартується.
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: {{ .Values.controlPlane.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.controlPlane.probes.readiness.failureThreshold }}
+          # liveness — «процес живий»: LivenessState, БЕЗ зовнішніх
+          # залежностей (БД/Kafka у liveness = рестарт-шторм при падінні
+          # залежності — та сама думка, що в ConfigReadinessCheck edge).
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: {{ .Values.controlPlane.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.controlPlane.probes.liveness.failureThreshold }}
+          volumeMounts:
+            # єдине місце, куди JVM-сервісу треба писати: java.io.tmpdir
+            # (Tomcat work dir). Все інше — read-only корінь.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

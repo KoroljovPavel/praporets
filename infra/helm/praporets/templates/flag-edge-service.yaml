@@ -3,13 +3,13 @@ kind: Service
 metadata:
   name: flag-edge
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
 spec:
   type: NodePort
   selector:
-    { { - include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 4 } }
+    {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 4 }}
   ports:
     - name: http
-      port: { { .Values.flagEdge.http.port } }
+      port: {{ .Values.flagEdge.http.port }}
       targetPort: http
-      nodePort: { { .Values.flagEdge.http.nodePort } }
+      nodePort: {{ .Values.flagEdge.http.nodePort }}

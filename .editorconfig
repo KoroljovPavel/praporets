@@ -12,3 +12,9 @@ trim_trailing_whitespace = true
 [*.java]
 indent_style = space
 indent_size = 4
+
+# Helm-шаблони — це Go-template, НЕ чистий YAML: автоформатер IDEA
+# перетворює {{ на { { і ламає рендер чарта (двічі ловили в 04a/04b).
+# ij_formatter_enabled вимикає Reformat Code для цих файлів у IDEA
+[infra/helm/**]
+ij_formatter_enabled = false

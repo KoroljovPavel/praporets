@@ -3,13 +3,13 @@ kind: Service
 metadata:
   name: analytics
   labels:
-    { { - include "praporets.labels" . | nindent 4 } }
+    {{- include "praporets.labels" . | nindent 4 }}
 spec:
   type: NodePort
   selector:
-    { { - include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 } }
+    {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 }}
   ports:
     - name: http
-      port: { { .Values.analytics.http.port } }
+      port: {{ .Values.analytics.http.port }}
       targetPort: http
-      nodePort: { { .Values.analytics.http.nodePort } }
+      nodePort: {{ .Values.analytics.http.nodePort }}
