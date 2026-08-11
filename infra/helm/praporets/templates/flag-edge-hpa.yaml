@@ -1,0 +1,29 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: flag-edge
+  labels:
+    {{- include "praporets.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flag-edge
+  minReplicas: {{ .Values.flagEdge.hpa.minReplicas }}
+  maxReplicas: {{ .Values.flagEdge.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.flagEdge.hpa.cpuUtilizationPercent }}
+    {{- if .Values.flagEdge.hpa.rps.enabled }}
+    - type: Pods
+      pods:
+        metric:
+          name: {{ .Values.flagEdge.hpa.rps.metric }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.flagEdge.hpa.rps.target }}
+    {{- end }}

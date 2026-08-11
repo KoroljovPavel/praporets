@@ -4,7 +4,7 @@ metadata:
   name: analytics
   labels:
     {{- include "praporets.labels" . | nindent 4 }}
-      {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 }}
+    {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 }}
 spec:
   replicas: {{ .Values.analytics.replicas }}
   selector:
@@ -16,10 +16,13 @@ spec:
         {{- include "praporets.labels" . | nindent 8 }}
           {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 8 }}
     spec:
+      terminationGracePeriodSeconds: {{ .Values.analytics.terminationGracePeriodSeconds }}
+      {{- include "praporets.podSecurityContext" . | nindent 6 }}
       containers:
         - name: analytics
           image: {{ include "praporets.image" (dict "Values" .Values "name" "analytics") }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- include "praporets.containerSecurityContext" . | nindent 10 }}
           ports:
             - name: http
               containerPort: {{ .Values.analytics.http.port }}
@@ -28,3 +31,29 @@ spec:
           envFrom:
             - configMapRef:
                 name: analytics-config
+          resources:
+            {{- toYaml .Values.analytics.resources | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: {{ .Values.analytics.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.analytics.probes.startup.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: {{ .Values.analytics.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.analytics.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: {{ .Values.analytics.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.analytics.probes.liveness.failureThreshold }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

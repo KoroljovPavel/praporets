@@ -6,7 +6,6 @@ metadata:
     {{- include "praporets.labels" . | nindent 4 }}
       {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 4 }}
 spec:
-  replicas: {{ .Values.flagEdge.replicas }}
   selector:
     matchLabels:
       {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 6 }}
@@ -16,10 +15,20 @@ spec:
         {{- include "praporets.labels" . | nindent 8 }}
           {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 8 }}
     spec:
+      terminationGracePeriodSeconds: {{ .Values.flagEdge.terminationGracePeriodSeconds }}
+      topologySpreadConstraints:
+        - topologyKey: kubernetes.io/hostname
+          maxSkew: {{ .Values.flagEdge.topologySpread.maxSkew }}
+          whenUnsatisfiable: {{ .Values.flagEdge.topologySpread.whenUnsatisfiable }}
+          labelSelector:
+            matchLabels:
+              {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 14 }}
+      {{- include "praporets.podSecurityContext" . | nindent 6 }}
       containers:
         - name: flag-edge
           image: {{ include "praporets.image" (dict "Values" .Values "name" "flag-edge") }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- include "praporets.containerSecurityContext" . | nindent 10 }}
           ports:
             - name: http
               containerPort: {{ .Values.flagEdge.http.port }}
@@ -33,3 +42,23 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+          resources:
+              {{- toYaml .Values.flagEdge.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: http
+            periodSeconds: {{ .Values.flagEdge.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.flagEdge.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+                path: /q/health/live
+                port: http
+            periodSeconds: {{ .Values.flagEdge.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.flagEdge.probes.liveness.failureThreshold }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
