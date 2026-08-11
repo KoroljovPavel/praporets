@@ -2,15 +2,16 @@ package io.praporets.core.evaluation;
 
 import io.praporets.core.model.Clause;
 import io.praporets.core.model.Operator;
+import org.junit.jupiter.api.Test;
+
 import java.math.BigDecimal;
 import java.util.List;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * compile() перетворює сирі values на типізовані матчери, парсячи один раз
- * і мовчки відкидаючи невалідне (S4).
+ * і мовчки відкидаючи невалідне.
  */
 class ClauseMatcherCompileTest {
 

@@ -9,7 +9,8 @@ import java.util.UUID;
 
 /**
  * Конфігурація флага в середовищі. Ця сама форма (через
- * {@code ObjectMapper.valueToTree}) їде в {@code revision_log.payload} — G8.
+ * {@code ObjectMapper.valueToTree}) їде в {@code revision_log.payload} —
+ * тому журнал містить повний стан і придатний для rollback.
  */
 public record FlagConfigResponse(
         UUID id,

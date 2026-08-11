@@ -17,13 +17,16 @@ import static io.restassured.RestAssured.given;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 02d: наскрізний контракт стріму дельт (E-02/06/07). Сценарії керують
- * фейковим CP вручну, тому тести впорядковані (@Order) і йдуть як одна
- * розповідь: ревізія монотонно росте від тесту до тесту.
+ * Специфікує наскрізний контракт стріму дельт {@code ConfigSyncLoop}:
+ * підключення з ревізії снапшота, атомарне застосування дельт, ігнорування
+ * дублів, реконект після обриву, heartbeat-розрив, SnapshotRequired і
+ * метрики синхронізації. Сценарії керують фейковим CP вручну, тому тести
+ * впорядковані (@Order) і йдуть як одна розповідь: ревізія монотонно росте
+ * від тесту до тесту.
  *
  * <p>Окремий {@link TestProfile} — свіжий Quarkus-контекст: сценарії
  * змінюють ревізію store, і без ізоляції зламали б інваріанти
- * {@code EdgeStartupTest} з 02c (той перевіряє рівно ревізію снапшота).
+ * {@code EdgeStartupTest} (той перевіряє рівно ревізію снапшота).
  *
  * <p>read-timeout навмисно великий (60s): реконекти в цих тестах мають
  * траплятись ТІЛЬКИ коли їх викликає сценарій, а не фоновий таймаут тиші.
@@ -86,7 +89,7 @@ class ConfigStreamSyncTest {
     @Test
     @Order(3)
     void duplicate_or_stale_delta_is_ignored() throws Exception {
-        // та сама ревізія 8, але з enabled=true: дубль catch-up/live (D4) —
+        // та сама ревізія 8, але з enabled=true: дубль між catch-up і live —
         // якби застосувався, флаг «відкотився б» у true
         FakeControlPlane.latestSession().sendDelta(8, true);
 
@@ -126,7 +129,7 @@ class ConfigStreamSyncTest {
             .as("heartbeat-розрив лікується реконектом, НЕ снапшотом")
             .isEqualTo(snapshotsBefore);
 
-        // сервер (як справжній CP у 02b) докидає склеєну дельту — edge доганяє
+        // сервер (як справжній CP) докидає склеєну дельту — edge доганяє
         FakeControlPlane.latestSession().sendDelta(9, true);
         await("catch-up дельта 9 застосована", () -> currentRevision() == 9);
         assertThat(flagEnabled()).isTrue();
@@ -142,7 +145,7 @@ class ConfigStreamSyncTest {
 
         await("перезавантажено зі снапшота ревізії 11", () -> currentRevision() == 11);
         assertThat(FakeControlPlane.snapshotCalls()).isGreaterThan(snapshotsBefore);
-        // новий стрім відкрито вже з ревізії свіжого снапшота (камінь #5)
+        // новий стрім відкрито вже з ревізії свіжого снапшота
         assertThat(FakeControlPlane.latestSession().fromRevision()).isEqualTo(11);
     }
 

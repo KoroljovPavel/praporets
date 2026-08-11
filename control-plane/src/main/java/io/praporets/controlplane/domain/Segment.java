@@ -11,13 +11,10 @@ import java.util.UUID;
 
 /**
  * Сегмент користувачів у межах середовища — таблиця {@code segment}.
- *
- * <p><b>Мапінг (твоя робота):</b> {@code @Entity}; {@code environment} —
- * {@code @ManyToOne(fetch = LAZY)}; {@code conditions} — JSONB напряму в
- * {@code List<Clause>} із ядра (P1): {@code @JdbcTypeCode(SqlTypes.JSON)}.
- * Jackson серіалізує records за іменами компонентів — це і є канонічна
- * JSON-форма умов. Десеріалізація йде через канонічний конструктор, тож
- * валідації ядра спрацюють і при читанні з БД. {@code version} — {@code @Version} (P3).
+ * {@code conditions} — JSONB-колонка, що мапиться напряму в
+ * {@code List<Clause>} із ядра: Jackson серіалізує records за іменами
+ * компонентів (це і є канонічна JSON-форма умов), а десеріалізація йде через
+ * канонічний конструктор, тож валідації ядра спрацьовують і при читанні з БД.
  */
 @Entity
 @Table(name = "segment")

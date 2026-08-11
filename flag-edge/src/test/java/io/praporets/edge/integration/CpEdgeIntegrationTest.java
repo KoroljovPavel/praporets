@@ -22,15 +22,16 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
- * 02f (I2/I4): наскрізний контракт CP↔edge проти СПРАВЖНЬОГО control-plane
- * (Testcontainers: Postgres + CP з bootJar) — те, що в оригінальній спеці
- * проекту мав робити Pact. Фейка тут немає: снапшот, стрім, дельти,
- * heartbeat-и і SnapshotRequired — усе від реального сервера з реальної БД.
+ * Специфікує наскрізний контракт CP↔edge проти СПРАВЖНЬОГО control-plane
+ * (Testcontainers: Postgres + Kafka + CP з bootJar). Синтаксис контракту
+ * перевіряє компілятор через спільні proto-файли, а семантику
+ * (SnapshotRequired при завеликому розриві, реконект, catch-up) — саме цей
+ * тест: фейка тут немає, снапшот, стрім, дельти, heartbeat-и і
+ * SnapshotRequired — усе від реального сервера з реальної БД.
  *
  * <p>Сценарії впорядковані і йдуть однією історією (стан БД накопичується).
- * Тіла тестів — твої; план кожного — в JavaDoc. Хелпери бери з
- * {@link RealControlPlane} (toggle, stop/start, bump, currentCpRevision) і
- * локальні нижче (await, edge-evaluate через REST 8081).
+ * Хелпери — в {@link RealControlPlane} (toggle, stop/start, bump,
+ * currentCpRevision) і локальні нижче (await, edge-evaluate через REST 8081).
  */
 @QuarkusTest
 @QuarkusTestResource(value = RealControlPlane.class, restrictToAnnotatedClass = true)
@@ -70,12 +71,11 @@ class CpEdgeIntegrationTest {
     }
 
     /**
-     * <b>План:</b> edge уже стартував проти реального CP (ресурс відпрацював
-     * до тестів). Перевір, що:
+     * Edge стартував проти реального CP (ресурс відпрацював до тестів):
      * <ol>
      *   <li>store завантажений, ревізія edge == {@link RealControlPlane#currentCpRevision()}
      *       (незалежне джерело — БД, не відповідь CP);</li>
-     *   <li>REST-обчислення на edge (8081, unified!) для context
+     *   <li>REST-обчислення на edge (спільний порт 8081) для context
      *       {@code country=UA} → {@code RULE_MATCH}, variant {@code on}
      *       (правило посіяне сідингом);</li>
      *   <li>для {@code country=DE} → {@code DEFAULT} (rollout відсутній).</li>
@@ -104,11 +104,11 @@ class CpEdgeIntegrationTest {
     }
 
     /**
-     * <b>План:</b> {@link RealControlPlane#toggleFlag toggleFlag(false)} →
-     * await (дедлайн 3с, у логах подивись фактичний час — очікувано сотні мс),
-     * доки edge-ревізія не зросте; потім evaluate → {@code FLAG_DISABLED},
+     * Пропагація зміни end-to-end: {@link RealControlPlane#toggleFlag
+     * toggleFlag(false)} через CP REST → дельта доїжджає до edge (дедлайн
+     * await 3с, фактично — сотні мс); evaluate → {@code FLAG_DISABLED},
      * variant {@code off}, ревізія у відповіді == нова ревізія БД.
-     * Наприкінці поверни флаг назад ({@code toggleFlag(true)} + await) —
+     * Наприкінці флаг повертається назад ({@code toggleFlag(true)} + await) —
      * наступні сценарії стартують із увімкненого стану.
      */
     @Test
@@ -131,9 +131,9 @@ class CpEdgeIntegrationTest {
     }
 
     /**
-     * <b>План (E-06 проти реального CP):</b>
+     * Виживання edge при падінні CP:
      * <ol>
-     *   <li>запам'ятай edge-ревізію; {@link RealControlPlane#stopControlPlane()};</li>
+     *   <li>{@link RealControlPlane#stopControlPlane()};</li>
      *   <li>edge ДАЛІ відповідає: evaluate → 200, той самий результат,
      *       та сама ревізія (вибір AP — store не чіпається під час розриву);</li>
      *   <li>{@link RealControlPlane#startControlPlane()} (ті самі порти);</li>
@@ -171,11 +171,13 @@ class CpEdgeIntegrationTest {
     }
 
     /**
-     * <b>План (I4 — семантика SnapshotRequired, ядро «анти-Pact» кроку):</b>
+     * Семантика SnapshotRequired — головне, що не перевіриш компіляцією
+     * proto-контракту:
      * <ol>
      *   <li>{@link RealControlPlane#stopControlPlane()};</li>
      *   <li>{@link RealControlPlane#bumpRevisionInDatabase bumpRevisionInDatabase(1000)}
-     *       — стрибок повз revision-window (500) ТІЛЬКИ при лежачому CP;</li>
+     *       — стрибок повз revision-window (500); безпечно лише при
+     *       лежачому CP;</li>
      *   <li>{@link RealControlPlane#startControlPlane()};</li>
      *   <li>await до 60с: edge-ревізія == {@link RealControlPlane#currentCpRevision()}
      *       (стара + 1000) — тобто CP відповів SnapshotRequired на завеликий

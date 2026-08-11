@@ -11,24 +11,9 @@ import java.time.temporal.ChronoUnit;
 
 /**
  * Транзакційна обробка однієї події: ідемпотентний маркер + інкремент
- * агрегату В ОДНІЙ транзакції (G4). Виділено з листенера навмисно (G3):
+ * агрегату в ОДНІЙ транзакції. Виділено з листенера навмисно:
  * листенер ack-ає ПІСЛЯ повернення звідси, тобто після коміту — ack
  * всередині транзакційного методу комітив би офсет ДО даних.
- *
- * <p><b>Залежності для інжекту:</b> {@link EvaluationAggRepository}.
- *
- * <p><b>{@code process} (твоя робота):</b>
- * <ol>
- *   <li>{@code markProcessed(evaluationId)} → {@code false} — дублікат:
- *       тихий return (камінь #3: дублікат — це УСПІХ, не виняток);</li>
- *   <li>{@code variantKey == null} (FLAG_NOT_FOUND) — return: подія
- *       оброблена, але агрегату для неї немає;</li>
- *   <li>вікно: {@code occurredAt.truncatedTo(ChronoUnit.MINUTES)} —
- *       EVENT time (G6, камінь #4);</li>
- *   <li>{@code incrementAggregate(...)}.</li>
- * </ol>
- * Винятки (БД впала тощо) НЕ ловити — транзакція відкотиться цілком,
- * листенер не ack-не, error handler зробить ретраї → DLT (G5).
  */
 @Service
 public class EvaluationProcessor {
@@ -41,6 +26,25 @@ public class EvaluationProcessor {
         this.evaluationAggRepository = evaluationAggRepository;
     }
 
+    /**
+     * Обробляє одну evaluation-подію:
+     * <ol>
+     *   <li>{@code markProcessed(evaluationId)} → {@code false} — дублікат:
+     *       тихий return (дублікат — це успіх, не виняток);</li>
+     *   <li>{@code variantKey == null} (FLAG_NOT_FOUND) — return: подія
+     *       оброблена, але агрегату для неї немає;</li>
+     *   <li>вікно — {@code occurredAt}, обрізаний до хвилини (event time,
+     *       не час обробки);</li>
+     *   <li>інкремент агрегату: unique-дельта — чи користувач у вікні
+     *       вперше, rollout-дельта — лише flag-level ROLLOUT (reason
+     *       {@code ROLLOUT} без {@code ruleId});</li>
+     *   <li>інкремент лічильника {@code praporets_evaluations_total}
+     *       (тільки для нових подій — до цього рядка дублікат не доходить).</li>
+     * </ol>
+     * Винятки (БД впала тощо) навмисно не ловляться — транзакція
+     * відкочується цілком, листенер не ack-ає, error handler робить
+     * ретраї → DLT.
+     */
     @Transactional
     public void process(EvaluationEventPayload payload) {
         if (!evaluationAggRepository.markProcessed(payload.evaluationId()) || payload.variantKey() == null)

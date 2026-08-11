@@ -5,8 +5,9 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 02d: контракт backoff-а (D5). jitterSource детермінований — тести без сну
- * і без справжнього Random.
+ * Специфікує контракт {@link Backoff}: подвоєння стелі, кап, reset і повний
+ * діапазон jitter. jitterSource детермінований — тести без сну і без
+ * справжнього Random.
  */
 class BackoffTest {
 

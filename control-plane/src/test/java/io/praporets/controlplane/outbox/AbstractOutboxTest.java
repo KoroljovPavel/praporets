@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * База outbox-тестів (K7). НЕ {@link io.praporets.controlplane.AbstractIntegrationTest}
+ * База outbox-тестів. НЕ {@link io.praporets.controlplane.AbstractIntegrationTest}
  * і НЕ {@code @Transactional} — свідомо:
  * <ul>
  *   <li>відкат тест-транзакції означає, що BEFORE_COMMIT-слухач ніколи не
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * ({@code relay.relayBatch()}), інакше фонові тіки зробили б асерти
  * расовими.
  */
-// fanout теж вимкнений (03b): relay-тести читають топік ВЛАСНИМИ консюмерами,
+// fanout теж вимкнений: relay-тести читають топік ВЛАСНИМИ консюмерами,
 // а фоновий слухач контексту тільки додавав би недетермінізму
 @SpringBootTest(properties = {
     "praporets.outbox.relay.enabled=false",
@@ -63,7 +63,7 @@ public abstract class AbstractOutboxTest {
         try {
             jdbc.update("DELETE FROM outbox");
         } catch (org.springframework.dao.DataAccessException e) {
-            // таблиці ще немає — V2 пишеться в цьому ж кроці
+            // таблиці outbox ще немає — тихо пропускаємо
         }
         jdbc.update("DELETE FROM flag_config WHERE environment_id IN (SELECT id FROM environment WHERE key LIKE 'out-%')");
         jdbc.update("DELETE FROM revision_log WHERE environment_id IN (SELECT id FROM environment WHERE key LIKE 'out-%')");

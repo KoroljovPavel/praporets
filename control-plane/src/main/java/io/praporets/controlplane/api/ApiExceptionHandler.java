@@ -13,13 +13,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Єдина точка перекладу винятків у RFC 9457 Problem Details (G3).
- * Самописний формат {"error": ...} заборонений спекою (розділ 6.3).
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @RestControllerAdvice}; методи
- * {@code @ExceptionHandler}, які повертають {@code ProblemDetail}
- * ({@code ProblemDetail.forStatusAndDetail(...)}). Spring сам виставить
- * {@code Content-Type: application/problem+json} — тести це перевіряють.
+ * Єдина точка перекладу винятків у RFC 9457 Problem Details — Spring сам
+ * виставляє {@code Content-Type: application/problem+json}.
  *
  * <p>Мапінг:
  * <ul>
@@ -31,11 +26,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  *   <li>{@code MissingRequestHeaderException} (немає If-Match) → 400.</li>
  * </ul>
  *
- * <p>Bean Validation ({@code MethodArgumentNotValidException}) і битий JSON
- * ({@code HttpMessageNotReadableException} — сюди ж загорнуті IAE з канонічних
- * конструкторів core-records) вже перекладає в ProblemDetail базовий
- * {@code ResponseEntityExceptionHandler} — успадкуйся від нього, і ці два
- * кейси дістанеш безкоштовно.
+ * <p>Успадкування від {@code ResponseEntityExceptionHandler} дає безкоштовно
+ * переклад Bean Validation ({@code MethodArgumentNotValidException}) і битого
+ * JSON ({@code HttpMessageNotReadableException} — сюди ж загорнуті IAE з
+ * канонічних конструкторів core-records).
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {

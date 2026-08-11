@@ -16,14 +16,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Конфігурація флага в середовищі (CP-03) — серце кроку. Кожна зміна тут
- * видима edge → ревізія + аудит в одній транзакції (спека 7.3, кроки 1–4).
+ * Конфігурація флага в середовищі. Кожна зміна тут видима edge, тому
+ * ревізія середовища й запис аудиту пишуться в одній транзакції з самою
+ * зміною.
  *
- * <p><b>Реалізація (твоя робота):</b> {@code @Service} + {@code @Transactional}.
- * Доменна валідація ({@link DomainValidationException}): {@code defaultVariant}
- * і {@code offVariant} існують серед варіантів флага; варіанти в rollout-бакетах
- * і правилах теж (достатньо перевірити bucket-и rollout-ів і {@code variantKey}
- * правил — clauses валідує ядро при десеріалізації).
+ * <p>Доменна валідація ({@link DomainValidationException}):
+ * {@code defaultVariant}, {@code offVariant}, {@code variantKey} правил і
+ * варіанти в rollout-бакетах мають існувати серед варіантів флага
+ * (clauses валідує ядро при десеріалізації).
  */
 @Service
 @Transactional(readOnly = true)
@@ -44,7 +44,9 @@ public class FlagConfigService {
         this.environmentRepository = environmentRepository;
     }
 
-    /** @throws NotFoundException якщо середовища, флага або конфігурації немає */
+    /**
+     * @throws NotFoundException якщо конфігурації для цієї пари flag+environment немає
+     */
     public FlagConfigResponse get(String environmentKey, String flagKey) {
         return flagConfigRepository.findByFlagKeyAndEnvironmentKey(flagKey, environmentKey).map(f -> new FlagConfigResponse(
             f.getId(), f.getFlag().getKey(), f.getEnvironment().getKey(), f.isEnabled(), f.getDefaultVariant(),
@@ -54,7 +56,7 @@ public class FlagConfigService {
     }
 
     /**
-     * Створення або повна заміна конфігурації (G4):
+     * Створення або повна заміна конфігурації з оптимістичним контролем версії:
      * <ul>
      *   <li>конфігурації ще немає → {@code expectedVersion} має бути {@code null}
      *       (If-Match не надіслано) → створення, {@code created=true};</li>
@@ -140,8 +142,9 @@ public class FlagConfigService {
     }
 
     /**
-     * Kill switch (G5): перемикає {@code enabled} БЕЗ If-Match — last-write-wins
-     * свідомо. Ревізія ({@code FLAG_TOGGLED}) + аудит ({@code TOGGLE}) як завжди.
+     * Kill switch: перемикає {@code enabled} БЕЗ If-Match — last-write-wins
+     * свідомо, аварійне вимкнення не має впиратися в конфлікт версій.
+     * Ревізія ({@code FLAG_TOGGLED}) + аудит ({@code TOGGLE}) як завжди.
      * Ідемпотентність не потрібна: повторний toggle у той самий стан — теж ревізія
      * (простіше і чесніше для журналу).
      *

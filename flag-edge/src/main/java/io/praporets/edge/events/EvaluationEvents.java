@@ -18,32 +18,18 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Гарячий шлях подій (E-05): збирає {@link EvaluationEvent} із результату
- * обчислення і кладе в bounded-чергу. НІКОЛИ не блокує і не кидає — обчислення
- * важливіше за аналітику (E1). Дренує чергу {@link EvaluationEventPublisher}.
+ * Гарячий шлях подій: збирає {@link EvaluationEvent} із результату обчислення
+ * і кладе в bounded-чергу ({@code ArrayBlockingQueue}, ємність —
+ * {@code praporets.edge.events.buffer-size}). НІКОЛИ не блокує і не кидає —
+ * обчислення важливіше за аналітику: при переповненні нова подія просто
+ * викидається (drop-newest через {@code offer}, без блокуючого {@code put}
+ * і без {@code add}, що кидає) і рахується лічильником
+ * {@code flag_edge_events_dropped_total{reason="buffer_full"}}. Лічильник
+ * реєструється в конструкторі — видимий у метриках і коли дорівнює нулю.
+ * Чергу дренує {@link EvaluationEventPublisher}.
  *
- * <p><b>Залежності для інжекту (конструктор — твоя робота):</b>
- * <ul>
- *   <li>{@code @ConfigProperty praporets.edge.environment} → поле події;</li>
- *   <li>{@code @ConfigProperty praporets.edge.instance-id} → поле події;</li>
- *   <li>{@code @ConfigProperty praporets.edge.events.buffer-size} → ємність
- *       {@code ArrayBlockingQueue<EvaluationEvent>};</li>
- *   <li>{@code MeterRegistry} → лічильник
- *       {@code flag_edge_events_dropped_total} з тегом
- *       {@code reason="buffer_full"} (E3; зареєструй у конструкторі, як
- *       гейджі в {@code SyncMetrics} — лічильник видимий і коли нулю).</li>
- * </ul>
- *
- * <p><b>{@code emit} (твоя робота):</b> побудувати подію —
- * {@link Uuid7#generate()}, {@code Instant.now()}, SHA-256 hex від
- * {@code userKey} (E5: сирий ключ НЕ зберігати ніде, хеш рахується тут же;
- * {@code MessageDigest.getInstance("SHA-256")} на виклик — дешево),
- * {@code reason().name()}, поля з результату — і {@code offer()} у чергу.
- * {@code offer() == false} → інкремент лічильника, повернути false. Жодних
- * {@code put()} (блокує) чи {@code add()} (кидає) — камінь #4.
- *
- * <p><b>{@code drainTo} (твоя робота):</b> тонка обгортка над
- * {@code queue.drainTo(sink, max)} — для дренера і тестів.
+ * <p>SHA-256 від {@code userKey} рахується прямо тут, у момент побудови
+ * події — сирий ключ (PII) не зберігається ніде і не покидає edge.
  */
 @ApplicationScoped
 public class EvaluationEvents {
@@ -65,7 +51,7 @@ public class EvaluationEvents {
     }
 
     /**
-     * Ім'я лічильника втрат (E3); теги: {@code reason=buffer_full|send_failed}.
+     * Ім'я лічильника втрат; теги: {@code reason=buffer_full|send_failed}.
      */
     public static final String DROPPED_METRIC = "flag_edge_events_dropped_total";
 
@@ -74,7 +60,8 @@ public class EvaluationEvents {
      * повертає {@code false}. O(1), без блокувань і винятків.
      *
      * @param result   результат обчислення (будь-який reason, включно з
-     *                 FLAG_NOT_FOUND — E8)
+     *                 FLAG_NOT_FOUND — запити невідомих флагів теж сигнал
+     *                 для аналітики)
      * @param revision ревізія конфігурації, на якій рахували
      * @param userKey  сирий ключ користувача — тут же хешується, далі не йде
      * @return {@code true}, якщо подія в буфері; {@code false} — втрачена
@@ -102,10 +89,10 @@ public class EvaluationEvents {
     }
 
     /**
+     * Блокуюче читання однієї події для дренера: чекає до {@code timeout} мс,
+     * повертає {@code null}, якщо буфер порожній.
      *
-     * @param timeout in ms
-     * @return EvaluationEvent
-     * @throws InterruptedException
+     * @throws InterruptedException якщо тред перервано під час очікування
      */
     protected EvaluationEvent poll(long timeout) throws InterruptedException {
         return events.poll(timeout, TimeUnit.MILLISECONDS);

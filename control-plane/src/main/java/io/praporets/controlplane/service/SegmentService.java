@@ -12,9 +12,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Сегменти середовища (CP-04). Зміна сегмента видима edge → створює ревізію.
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @Service} + {@code @Transactional}.
+ * Сегменти середовища. Зміна сегмента видима edge, тому створює ревізію
+ * середовища й запис аудиту в одній транзакції з самою зміною.
  */
 @Service
 @Transactional(readOnly = true)
@@ -34,9 +33,8 @@ public class SegmentService {
     }
 
     /**
-     * Сегменти середовища, відсортовані за ключем.
-     *
-     * @throws NotFoundException якщо середовища немає
+     * Сегменти середовища. Невідоме середовище дає порожній список —
+     * існування тут не перевіряється.
      */
     public List<SegmentResponse> list(String environmentKey) {
         return segmentRepository.findAllByEnvironmentKey(environmentKey).stream().map(s -> new SegmentResponse(
@@ -49,8 +47,8 @@ public class SegmentService {
      * {@link RevisionRecorder#recordChange} ({@code SEGMENT_UPDATED}, payload —
      * {@code valueToTree(response)}) + {@link RevisionRecorder#audit}
      * ({@code CREATE}/{@code UPDATE}, {@code entityType=SEGMENT}).
-     * If-Match тут свідомо не вимагаємо (сегменти правляться рідко;
-     * last-write-wins прийнятний — зафіксовано в G4/G5).
+     * If-Match тут свідомо не вимагається: сегменти правляться рідко,
+     * last-write-wins прийнятний.
      *
      * @throws NotFoundException якщо середовища немає
      */

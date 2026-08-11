@@ -16,11 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 
 /**
- * CRUD середовищ (CP-01). Найпростіший сервіс кроку — почни з нього.
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @Service}; клас-рівневий
- * {@code @Transactional} або на методах, читання — {@code readOnly = true}.
- * Ін'єкція — через конструктор (ArchUnit валить field injection).
+ * CRUD середовищ і читання журналу ревізій середовища.
  */
 @Service
 @Transactional(readOnly = true)
@@ -50,7 +46,8 @@ public class EnvironmentService {
     /**
      * Створює середовище + запис аудиту ({@code action=CREATE},
      * {@code entityType=ENVIRONMENT}, {@code before=null}). Ревізія НЕ
-     * інкрементується (G6 — середовище не видиме edge як зміна конфігурації).
+     * інкрементується — створення середовища не є зміною конфігурації,
+     * видимою edge.
      *
      * @throws DomainValidationException якщо ключ уже зайнятий
      */
@@ -69,11 +66,10 @@ public class EnvironmentService {
     }
 
     /**
-     * Останні ревізії середовища, новіші перші
-     * ({@code RevisionLogRepository.findByEnvironmentKeyOrderByRevisionDesc}).
+     * Останні ревізії середовища, новіші перші. Невідоме середовище дає
+     * порожній список — існування тут не перевіряється.
      *
      * @param limit максимум записів (контролер дає дефолт 50)
-     * @throws NotFoundException якщо середовища немає
      */
     public List<RevisionResponse> revisions(String environmentKey, int limit) {
         return revisionLogRepository.findByEnvironmentKeyOrderByRevisionDesc(environmentKey, Limit.of(limit)).stream().map(r -> new RevisionResponse(

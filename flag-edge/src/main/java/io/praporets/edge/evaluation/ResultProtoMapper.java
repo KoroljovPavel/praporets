@@ -10,7 +10,7 @@ import java.util.Map;
 /**
  * Мапінг між proto-контрактом {@code praporets.evaluation.v1} і core —
  * дзеркало {@link io.praporets.edge.config.ProtoToCoreMapper}, але в
- * протилежний бік: core-результат → proto-відповідь (V4).
+ * протилежний бік: core-результат → proto-відповідь.
  *
  * <p>Без залежностей — чистий stateless-мапер.
  */
@@ -21,8 +21,8 @@ public class ResultProtoMapper {
      * Proto-контекст запиту → core-контекст.
      *
      * <p>Пряме перенесення {@code userKey} і {@code attributes}. Валідність
-     * (blank userKey) тут НЕ перевіряється — це робота викликача на межі
-     * (камінь #2): core-конструктор кидає IAE, і летіти воно має як
+     * (blank userKey) тут НЕ перевіряється — це робота викликача на межі:
+     * core-конструктор кидає IAE, і летіти воно має як
      * {@code INVALID_ARGUMENT}/400, а не як помилка мапінгу.
      *
      * @param protoContext контекст із запиту (не {@code null})
@@ -45,10 +45,10 @@ public class ResultProtoMapper {
      *   <li>{@code flagKey}, {@code variantKey}, {@code jsonValue},
      *       {@code ruleId} переносяться як є; core-{@code null} → поле не
      *       сетається (proto3 віддасть порожній рядок; {@code set*(null)}
-     *       кидає NPE — камінь #3);</li>
+     *       кинув би NPE);</li>
      *   <li>{@code reason} — через {@link #toProtoReason};</li>
-     *   <li>{@code revision} — з переданого знімка store (V2: те саме
-     *       значення, на якому обчислювали).</li>
+     *   <li>{@code revision} — з переданого знімка store: те саме значення,
+     *       на якому обчислювали.</li>
      * </ul>
      *
      * @param result   результат core {@code Evaluator} (не {@code null})
@@ -75,7 +75,7 @@ public class ResultProtoMapper {
     }
 
     /**
-     * Core-{@code Reason} → proto-{@code Reason} <b>явним switch-ом</b> (V4).
+     * Core-{@code Reason} → proto-{@code Reason} <b>явним switch-ом</b>.
      *
      * <p>Імена значень збігаються, але {@code valueOf} за ім'ям заборонений
      * свідомо: proto-enum має значення, яких немає в core

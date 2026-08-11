@@ -18,27 +18,23 @@ import tools.jackson.databind.util.RawValue;
 import java.util.Optional;
 
 /**
- * Пише подію зміни в outbox У ТІЙ САМІЙ транзакції, що й сама зміна (CP-09,
- * K4). Дзеркальний близнюк {@code FlagChangesConsumer}: той слухає Kafka topic
- * {@code KafkaTopics.FLAG_CHANGES} і пушить у локальні стріми, цей — {@code BEFORE_COMMIT}
- * і пише в БД. Відкат транзакції відкочує і outbox-рядок — атомарність
- * «зміна + подія» без розподілених транзакцій.
+ * Пише подію зміни конфігурації в outbox У ТІЙ САМІЙ транзакції, що й сама
+ * зміна: слухає {@link ConfigChangedEvent} у фазі {@code BEFORE_COMMIT}, тож
+ * відкат транзакції відкочує і outbox-рядок — атомарність «зміна + подія»
+ * без розподілених транзакцій. Дзеркальний близнюк
+ * {@code FlagChangesConsumer}: той читає {@code KafkaTopics.FLAG_CHANGES}
+ * і пушить у локальні gRPC-стріми, цей — пише в БД, звідки {@link OutboxRelay}
+ * доставить подію в Kafka.
  *
- * <p><b>Залежності для інжекту:</b> {@code DeltaAssembler} (грінка з grpc-
- * пакета — збірка дельти рівно однієї ревізії), {@code OutboxRepository},
- * {@code EnvironmentRepository} (за aggregate_id середовища).
+ * <p>Дельта збирається через {@code DeltaAssembler.assembleSince(env,
+ * revision - 1)} — виклик іде всередині ще не закомміченої транзакції, тому
+ * щойно вставлений revision_log уже видимий. Payload — JSON виду
+ * {@code {"environmentKey": ..., "revision": ..., "delta": <protobuf-JSON>}};
+ * дельта вставляється як {@code RawValue}, бо {@code JsonFormat} вже видає
+ * валідний JSON. Topic — {@code KafkaTopics.FLAG_CHANGES}, partition key —
+ * environmentKey (зберігає порядок подій у межах середовища).
  *
- * <p><b>Реалізація (твоя):</b>
- * <ol>
- *   <li>{@code delta = deltaAssembler.assembleSince(env, event.revision() - 1)}
- *       — ми ВСЕРЕДИНІ транзакції, щойно вставлений revision_log видимий;</li>
- *   <li>payload за K3: {@code {"environmentKey": ..., "revision": ...,
- *       "delta": <JsonFormat.printer().print(delta)>}} — зручно зібрати
- *       рядком через Jackson ObjectNode + {@code putRawValue}, або конкатенацією
- *       з JsonFormat (дельта вже валідний JSON);</li>
- *   <li>{@code outboxRepository.save(new OutboxEntry(...))} з topic =
- *       {@code KafkaTopics.FLAG_CHANGES}, partition_key = environmentKey.</li>
- * </ol>
+ * <p>Якщо середовище з події не знайдено — подія мовчки ігнорується.
  */
 @Component
 public class OutboxWriter {

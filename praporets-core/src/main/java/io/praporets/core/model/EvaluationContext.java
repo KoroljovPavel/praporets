@@ -39,7 +39,7 @@ public record EvaluationContext(String userKey, Map<String, String> attributes) 
     /**
      * Значення атрибута для матчингу.
      *
-     * <p>Правило S3: ім'я {@value #USER_KEY_ATTRIBUTE} <b>завжди</b> резолвиться
+     * <p>Ім'я {@value #USER_KEY_ATTRIBUTE} <b>завжди</b> резолвиться
      * в {@link #userKey()} — навіть якщо в {@code attributes} лежить ключ із такою
      * самою назвою (ідентичність користувача не можна перекрити атрибутом).
      *

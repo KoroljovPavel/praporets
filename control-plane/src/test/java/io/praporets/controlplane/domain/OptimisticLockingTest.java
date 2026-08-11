@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * P3: @Version захищає від lost update. Конкурент емулюється прямим UPDATE
+ * Оптимістичний лок: {@code @Version} захищає від lost update. Конкурент емулюється прямим UPDATE
  * повз persistence context — детерміновано, без потоків і race'ів у тесті.
  */
 class OptimisticLockingTest extends AbstractRepositoryTest {

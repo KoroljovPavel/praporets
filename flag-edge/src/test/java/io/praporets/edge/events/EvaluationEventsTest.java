@@ -23,7 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 03c/E1+E5: гарячий шлях подій — побудова події, переповнення без
+ * Специфікує гарячий шлях подій — побудова події, переповнення без
  * блокувань/винятків, лічильник втрат. Дефолтний профіль: publisher
  * вимкнений ({@code %test.praporets.edge.events.enabled=false}), буфер
  * смикається руками — інакше фоновий дренер з'їдав би події між emit-ами
@@ -42,7 +42,7 @@ class EvaluationEventsTest {
     int bufferSize;
 
     /**
-     * Буфер спільний на контекст (камінь #5) — кожен тест стартує порожнім.
+     * Буфер спільний на Quarkus-контекст — кожен тест стартує порожнім.
      */
     @BeforeEach
     void drainLeftovers() {
@@ -78,7 +78,7 @@ class EvaluationEventsTest {
 
     @Test
     void flag_not_found_is_an_event_too() {
-        // E8: запити невідомих флагів — корисний сигнал для аналітики
+        // запити невідомих флагів — корисний сигнал для аналітики
         events.emit(new EvaluationResult("no.such.flag", Reason.FLAG_NOT_FOUND, null, null, null), 7, "user-42");
 
         List<EvaluationEvent> drained = new ArrayList<>();
@@ -102,7 +102,7 @@ class EvaluationEventsTest {
         int total = events.drainTo(drained, Integer.MAX_VALUE);
 
         assertThat(total).as("буфер тримає рівно свою ємність").isEqualTo(bufferSize);
-        // drop-newest: викидаються НОВІ події, найстаріші доїжджають (E1)
+        // drop-newest: викидаються НОВІ події, найстаріші доїжджають
         assertThat(drained.getFirst().revision()).isEqualTo(0);
         assertThat(drained.getLast().revision()).isEqualTo(bufferSize - 1);
         assertThat(droppedCount() - droppedBefore)

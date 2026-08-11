@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * {@code POST /api/v1/evaluate-preview} (CP-11). Завжди 200 (навіть
- * {@code FLAG_NOT_FOUND} — це валідний результат обчислення, H2), окрім
- * невідомого середовища → 404 (сервіс кидає {@code NotFoundException},
- * хендлер мапить). X-Actor не потрібен — dry-run нічого не змінює (H3).
+ * {@code POST /api/v1/evaluate-preview} — dry-run обчислення флага. Завжди
+ * 200 (навіть {@code FLAG_NOT_FOUND} — це валідний результат обчислення),
+ * окрім невідомого середовища → 404. X-Actor не потрібен — dry-run нічого
+ * не змінює.
  */
 @RestController
 @RequestMapping("/api/v1/evaluate-preview")

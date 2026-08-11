@@ -9,7 +9,7 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Анти-N+1 (P4): агрегат «флаг + варіанти» вантажиться рівно одним SQL-запитом.
+ * Анти-N+1: агрегат «флаг + варіанти» вантажиться рівно одним SQL-запитом.
  * Ловить регресію автоматично — замість «когось колись здивує повільний ендпоінт».
  * Один із трьох тестів, на які посилатиметься README.
  */

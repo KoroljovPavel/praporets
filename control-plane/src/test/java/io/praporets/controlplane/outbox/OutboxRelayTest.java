@@ -24,7 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 03a: контракт ДОСТАВКИ (K5/K6) — relay забирає пачку через
+ * Контракт доставки — relay забирає пачку через
  * FOR UPDATE SKIP LOCKED, публікує з ack-ом і маркує. Планувальник у цьому
  * контексті вимкнений — кожен тік викликається явно.
  */
@@ -54,7 +54,7 @@ class OutboxRelayTest extends AbstractOutboxTest {
         assertThat(record.key()).isEqualTo(env);
         assertThat(record.value()).contains("\"revision\"");
         Header schemaVersion = record.headers().lastHeader("schema-version");
-        assertThat(schemaVersion).as("заголовок schema-version (K3)").isNotNull();
+        assertThat(schemaVersion).as("заголовок schema-version").isNotNull();
         assertThat(new String(schemaVersion.value(), StandardCharsets.UTF_8)).isEqualTo("1");
     }
 

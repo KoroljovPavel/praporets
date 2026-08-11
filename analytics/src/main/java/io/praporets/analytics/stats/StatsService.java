@@ -10,32 +10,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Gatherers;
 
 /**
- * Збірка часового ряду: рядки {@code findWindows} → серії по варіантах з
- * кумулятивою (H4).
- *
- * <p><b>Залежності для інжекту:</b> {@link StatsRepository}.
- *
- * <p><b>{@code stats} (твоя робота):</b>
- * <ol>
- *   <li>{@code findWindows(...)} — уже впорядковані за часом;</li>
- *   <li>групування по {@code variantKey} зі ЗБЕРЕЖЕННЯМ порядку точок
- *       (камінь #6: {@code groupingBy(..., LinkedHashMap::new, toList())}
- *       або ручний прохід);</li>
- *   <li>кумулятива — <b>{@code Gatherers.scan}</b> (JDK 24, java.util.stream):
- *       <pre>
- * List&lt;Point&gt; points = windows.stream()
- *     .gather(Gatherers.scan(
- *         () -&gt; new Point(null, 0, 0, 0),
- *         (acc, w) -&gt; new Point(w.windowStart(), w.evalCount(), w.uniqueUsers(),
- *                               acc.cumulativeEvalCount() + w.evalCount())))
- *     .toList();
- *       </pre>
- *       {@code scan} віддає ПРОМІЖНІ значення згортки — це й є біжуча
- *       сума; {@code fold} віддав би лише фінал (камінь #5). Ініціальний
- *       елемент — «нульовий акумулятор», у вихід не потрапляє;</li>
- *   <li>зібрати {@link StatsResponse}; флаг без рядків → порожній
- *       {@code series}, не помилка.</li>
- * </ol>
+ * Збірка часового ряду: рядки {@link StatsRepository#findWindows} (уже
+ * впорядковані за часом) → серії по варіантах із біжучою сумою.
+ * Групування по {@code variantKey} — через {@code LinkedHashMap}, щоб
+ * зберегти порядок точок усередині серії. Кумулятива — через
+ * {@code Gatherers.scan}: на відміну від {@code fold} він віддає ПРОМІЖНІ
+ * значення згортки, що й є біжучою сумою; ініціальний «нульовий
+ * акумулятор» у вихід не потрапляє. Флаг без рядків у діапазоні →
+ * порожній {@code series}, не помилка.
  */
 @Service
 public class StatsService {

@@ -35,10 +35,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * 03c: наскрізний контракт публікації — обчислення через реальний REST/gRPC
- * edge → подія в {@code praporets.flag.evaluations.v1} у форматі спеки §6.4.
- * Окремий Quarkus-контекст: FakeControlPlane (конфігурація) + EventsKafka
- * (брокер, events увімкнені).
+ * Специфікує наскрізний контракт публікації — обчислення через реальний
+ * REST/gRPC edge → подія в {@code praporets.flag.evaluations.v1}: key =
+ * flagKey, header {@code schema-version: 1}, JSON-поля події, хешований
+ * userKey. Окремий Quarkus-контекст: FakeControlPlane (конфігурація) +
+ * EventsKafka (брокер, events увімкнені).
  *
  * <p>Топік спільний на JVM-прогін, тому кожен тест фільтрує повідомлення за
  * хешем СВОГО унікального userKey — чужі події невидимі.

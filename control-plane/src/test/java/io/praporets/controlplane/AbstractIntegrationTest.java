@@ -10,7 +10,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * База інтеграційних тестів 01g: повний контекст + MockMvc + той самий
+ * База інтеграційних тестів: повний контекст + MockMvc + той самий
  * singleton-Postgres, що й у repo-тестів ({@link TestPostgres}).
  *
  * <p>{@code @Transactional} відкочує кожен тест; сервісні

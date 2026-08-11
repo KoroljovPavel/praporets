@@ -4,15 +4,16 @@ import io.praporets.core.model.Clause;
 import io.praporets.core.model.EvaluationContext;
 import io.praporets.core.model.Operator;
 import io.praporets.core.model.Segment;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Семантика матчингу — рішення S1–S9 зі спеки кроку 01c. Кожен тест пінить
+ * Семантика матчингу {@link ClauseEvaluator}. Кожен тест пінить
  * одне продуктове правило.
  */
 class ClauseEvaluatorTest {
@@ -47,7 +48,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void values_are_or_ed() {
-            // S1: OR між values
+            // OR між values
             assertThat(ClauseEvaluator.matches(
                     clause("country", Operator.IN, "PL", "UA"),
                     user("country", "UA"), NO_SEGMENTS)).isTrue();
@@ -103,7 +104,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void compares_numerically_not_lexicographically() {
-            // S9: лексикографічно "10" < "9" — числово навпаки
+            // лексикографічно "10" < "9" — числово навпаки
             assertThat(ClauseEvaluator.matches(
                     clause("age", Operator.GREATER_THAN, "9"),
                     user("age", "10"), NO_SEGMENTS)).isTrue();
@@ -125,7 +126,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void non_numeric_attribute_value_does_not_match() {
-            // S4: невалідні дані → false, не виключення
+            // невалідні дані → false, не виключення
             assertThat(ClauseEvaluator.matches(
                     clause("age", Operator.GREATER_THAN, "18"),
                     user("age", "eighteen"), NO_SEGMENTS)).isFalse();
@@ -133,7 +134,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void any_bound_may_match() {
-            // S1: OR між values — 10 > 9, хоча 10 < 100
+            // OR між values — 10 > 9, хоча 10 < 100
             assertThat(ClauseEvaluator.matches(
                     clause("age", Operator.GREATER_THAN, "100", "9"),
                     user("age", "10"), NO_SEGMENTS)).isTrue();
@@ -159,7 +160,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void compares_numerically_per_component() {
-            // S8: 5.10 > 5.9
+            // 5.10 > 5.9
             assertThat(ClauseEvaluator.matches(
                     clause("appVersion", Operator.SEMVER_GREATER_OR_EQUAL, "5.9"),
                     user("appVersion", "5.10.0"), NO_SEGMENTS)).isTrue();
@@ -215,7 +216,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void any_of_segment_keys_may_match() {
-            // S1: OR між values
+            // OR між values
             assertThat(ClauseEvaluator.matches(
                     clause("segment", Operator.IN_SEGMENT, "ghosts", "ua-users"),
                     user("country", "UA"), segments)).isTrue();
@@ -231,7 +232,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void segments_do_not_nest() {
-            // S5: IN_SEGMENT всередині сегмента → false, навіть якщо вкладений збігся б
+            // IN_SEGMENT всередині сегмента → false, навіть якщо вкладений збігся б
             assertThat(ClauseEvaluator.matches(
                     clause("segment", Operator.IN_SEGMENT, "nested"),
                     user("country", "UA"), segments)).isFalse();
@@ -265,7 +266,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void negate_with_missing_attribute_matches() {
-            // S2: negate інвертує БУДЬ-ЯКИЙ базовий результат, включно з «атрибут відсутній»
+            // negate інвертує БУДЬ-ЯКИЙ базовий результат, включно з «атрибут відсутній»
             assertThat(ClauseEvaluator.matches(
                     negated("country", Operator.IN, "UA"),
                     user(), NO_SEGMENTS)).isTrue();
@@ -285,7 +286,7 @@ class ClauseEvaluatorTest {
 
         @Test
         void all_clauses_must_match() {
-            // S1: AND між clauses
+            // AND між clauses
             var clauses = List.of(
                     clause("country", Operator.IN, "UA"),
                     clause("plan", Operator.IN, "pro"));

@@ -20,7 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 02e: контракт gRPC-обчислення (E-03/E-04) проти справжнього едж-сервера.
+ * Специфікує контракт gRPC-обчислення (Evaluate/EvaluateAll) проти
+ * справжнього едж-сервера.
  * Канонічний снапшот {@link FakeControlPlane}: флаг {@code checkout.new-flow}
  * (enabled, rule r1: country IN [UA] → "on", rollout 100% → "on"),
  * ревізія 7.
@@ -168,7 +169,7 @@ class EvaluationGrpcTest {
     @Test
     @Order(7)
     void delta_changes_evaluation_response() throws InterruptedException {
-        // міст 02d↔02e: вимкнення флага дельтою міняє ВІДПОВІДЬ обчислення
+        // міст стрім↔обчислення: вимкнення флага дельтою міняє ВІДПОВІДЬ обчислення
         FakeControlPlane.awaitSessionCount(1, 10_000);
         FakeControlPlane.latestSession().sendDelta(8, false);
         await("дельта 8 у store", () -> store.current()

@@ -10,19 +10,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Запис аудиту «хто, коли, що змінив» — таблиця {@code audit_log} (CP-05).
+ * Запис аудиту «хто, коли, що змінив» — таблиця {@code audit_log}.
  * Append-only, без зв'язків на інші сутності: {@code entityId} — просто UUID,
  * бо аудит має переживати навіть видалення сутності, на яку вказує.
  *
- * <p><b>Мапінг (твоя робота):</b> {@code @Entity}; id — {@code BIGSERIAL} →
- * {@code @GeneratedValue(strategy = IDENTITY)}; {@code before}/{@code after} —
- * nullable JSONB → {@link JsonNode} ({@code before} порожній при CREATE,
- * {@code after} — при ARCHIVE не порожній: зберігаємо стан після архівації);
- * {@code createdAt} — {@code @CreationTimestamp}.
- *
- * <p>Увага: {@code before} — не reserved word у Postgres, але колонки в схемі
- * називаються {@code before_state}/{@code after_state} — знадобиться
- * {@code @Column(name = ...)}.
+ * <p>{@code before}/{@code after} — nullable JSONB-знімки стану:
+ * {@code before} порожній при CREATE; при ARCHIVE зберігається стан після
+ * архівації.
  */
 @Entity
 @Table(name = "audit_log")

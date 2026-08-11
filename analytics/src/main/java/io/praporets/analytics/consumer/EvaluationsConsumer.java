@@ -12,27 +12,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
- * Консюмер {@code praporets.flag.evaluations.v1} (A-01): парсинг →
+ * Консюмер {@code praporets.flag.evaluations.v1}: парсинг →
  * {@link EvaluationProcessor} → ack. Група і offset-reset — з
- * {@code application.yaml} (G2: спільна група, earliest).
+ * {@code application.yaml} (спільна група реплік, earliest).
  *
- * <p><b>Залежності для інжекту:</b> {@link EvaluationProcessor},
- * {@code JsonMapper} (Jackson 3, бін Boot).
- *
- * <p><b>{@code onEvaluation} (твоя робота):</b>
- * <ol>
- *   <li>header {@code schema-version}: відсутній або не {@code "1"} →
- *       КИНУТИ виняток (G7 — на відміну від 03b це дані, їм місце в DLT,
- *       звідки їх можна переграти після апгрейду);</li>
- *   <li>{@code jsonMapper.readValue(record.value(),
- *       EvaluationEventPayload.class)};</li>
- *   <li>{@code processor.process(payload)};</li>
- *   <li>{@code ack.acknowledge()} — ТІЛЬКИ якщо все вище пройшло
- *       (камінь #2).</li>
- * </ol>
- * НІЯКИХ try/catch (G5, дзеркальна протилежність F5 з 03b): будь-який
- * виняток летить у {@code DefaultErrorHandler} → ретраї → DLT; ack не
- * відбувається, тож at-least-once гарантований.
+ * <p>У листенері свідомо жодного try/catch: будь-який виняток летить у
+ * {@code DefaultErrorHandler} → ретраї → DLT; ack не відбувається,
+ * тож at-least-once гарантований.
  */
 @Component
 public class EvaluationsConsumer {
@@ -45,6 +31,13 @@ public class EvaluationsConsumer {
         this.evaluationProcessor = evaluationProcessor;
     }
 
+    /**
+     * Обробляє один запис топіка. Відсутній або невідомий header
+     * {@code schema-version} → виняток: evaluation-події — безцінні дані,
+     * їм місце в DLT, звідки їх можна переграти після апгрейду консюмера
+     * (на відміну від відновлюваного стану, який можна просто скіпнути).
+     * Ack — тільки після успішного коміту обробки.
+     */
     @KafkaListener(id = "analytics-evaluations", topics = KafkaTopics.FLAG_EVALUATIONS)
     public void onEvaluation(ConsumerRecord<String, String> record, Acknowledgment ack) {
         Header header = record.headers().lastHeader("schema-version");

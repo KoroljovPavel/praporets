@@ -14,18 +14,10 @@ import java.util.UUID;
 
 /**
  * Конфігурація флага в конкретному середовищі — таблиця {@code flag_config}.
- * Найцікавіша сутність: тут живуть JSONB-правила і rollout.
- *
- * <p><b>Мапінг (твоя робота):</b>
- * <ul>
- *   <li>{@code flag}, {@code environment} — {@code @ManyToOne(fetch = LAZY)} (P2);</li>
- *   <li>{@code rules} — JSONB → {@code List<Rule>} з ядра (P1); у схемі DEFAULT '[]',
- *       у Java ініціалізуй порожнім списком;</li>
- *   <li>{@code rollout} — JSONB → {@code Rollout}, nullable (флаг без відсоткового
- *       розподілу — норма);</li>
- *   <li>{@code version} — {@code @Version} (P3);</li>
- *   <li>{@code updatedAt} — {@code @UpdateTimestamp}.</li>
- * </ul>
+ * {@code rules} і {@code rollout} — JSONB-колонки, що мапляться напряму в
+ * core-records ({@code List<Rule>}, {@code Rollout}); {@code rollout}
+ * nullable — флаг без відсоткового розподілу є нормою. {@code version} —
+ * оптимістичний лок для If-Match у API.
  */
 @Entity
 @Table(name = "flag_config")

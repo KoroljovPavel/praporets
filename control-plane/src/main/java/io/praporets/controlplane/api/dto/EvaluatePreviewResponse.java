@@ -4,13 +4,13 @@ import io.praporets.core.evaluation.Reason;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Відповідь preview (H2). {@link Reason} серіалізується ім'ям константи
- * ({@code "RULE_MATCH"}) — рівно те, що пінять тести.
+ * Відповідь preview. {@link Reason} серіалізується ім'ям константи
+ * ({@code "RULE_MATCH"}).
  *
  * @param variantKey {@code null} лише при {@code FLAG_NOT_FOUND}
- * @param value      розпарсене JSON-значення варіанта
- *                   ({@code jsonMapper.readTree(result.jsonValue())});
- *                   {@code null} при {@code FLAG_NOT_FOUND} і D6
+ * @param value      розпарсене JSON-значення варіанта; {@code null}, коли
+ *                   ядро не повернуло значення (зокрема при
+ *                   {@code FLAG_NOT_FOUND})
  * @param ruleId     заданий лише коли спрацювало правило (див. матрицю
  *                   {@code EvaluationResult})
  * @param revision   поточна ревізія середовища — щоб оператор бачив,

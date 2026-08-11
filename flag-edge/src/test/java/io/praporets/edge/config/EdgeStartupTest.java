@@ -12,11 +12,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.is;
 
 /**
- * 02c: контракт E-01 наскрізь — edge стартує, тягне снапшот із (фейкового)
- * control-plane, стає ready і тримає готову core-конфігурацію в пам'яті.
+ * Специфікує контракт старту edge наскрізь: edge стартує, тягне снапшот із
+ * (фейкового) control-plane, стає ready і тримає готову core-конфігурацію
+ * в пам'яті.
  *
- * <p>Завантаження фонове (рішення C5), тому тести чекають готовності
- * полінгом, а не сподіваються на порядок подій старту.
+ * <p>Завантаження фонове, тому тести чекають готовності полінгом, а не
+ * сподіваються на порядок подій старту.
  */
 @QuarkusTest
 @QuarkusTestResource(value = FakeControlPlane.class, restrictToAnnotatedClass = true)

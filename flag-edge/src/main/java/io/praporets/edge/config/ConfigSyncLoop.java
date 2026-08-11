@@ -21,17 +21,9 @@ import java.time.Duration;
 import java.util.concurrent.*;
 
 /**
- * Серце edge (D1): один фоновий тред, що тримає конфігурацію актуальною весь
- * час життя інстанса. Поглинає {@code SnapshotLoader} з 02c — той клас
- * видали, його роль тут (стан {@code SNAPSHOT} нижче).
- *
- * <p><b>Залежності для інжекту:</b> {@code @GrpcClient("config") Channel},
- * {@code @ConfigProperty praporets.edge.environment},
- * {@code @ConfigProperty praporets.edge.stream.read-timeout} (Duration,
- * дефолт {@code 45s} — 3× heartbeat-інтервал CP),
- * {@link ConfigStore}, {@link ProtoToCoreMapper}, {@link SyncMetrics}.
- *
- * <p><b>Машина станів петлі (виконується в одному треді, як у 02c):</b>
+ * Серце edge: один фоновий тред ({@code config-sync-loop}), що тримає
+ * конфігурацію в {@link ConfigStore} актуальною весь час життя інстанса.
+ * Двостанова машина, виконується строго в одному треді:
  * <pre>
  * SNAPSHOT:  GetSnapshot(env) → mapper.toEnvironmentConfig → store.swap
  *            → metrics.markSynced(rev) → backoff.reset() → STREAM
@@ -39,33 +31,40 @@ import java.util.concurrent.*;
  *
  * STREAM:    async-стаб streamConfig(env, fromRevision = поточна ревізія
  *            store, edgeInstanceId) із ClientResponseObserver:
- *            - onNext/onError кладуть у BlockingQueue&lt;Object&gt; (кап 256,
- *              put — навмисний backpressure на gRPC-тред);
+ *            - onNext/onError/onCompleted кладуть повідомлення в
+ *              BlockingQueue&lt;Object&gt; (кап 256; блокуючий put — навмисний
+ *              backpressure на gRPC-тред);
  *            - beforeStart зберігає ClientCallStreamObserver — єдина ручка
- *              для cancel із нашого боку (камінь #3)
+ *              для cancel стріму з нашого боку.
  *
- * CONSUME:   u = queue.poll(readTimeout):
- *            - null (тиша довша за таймаут — стрім мертвий без RST)
- *              → cancel → sleep(backoff) → STREAM
+ *            Далі споживання: u = queue.poll(readTimeout):
+ *            - null (тиша довша за readTimeout — стрім мертвий без RST,
+ *              heartbeat-и мали б приходити частіше) → cancel →
+ *              sleep(backoff) → STREAM
  *            - DELTA і u.revision &gt; поточна → mapper.toDelta →
  *              DeltaApplier.apply → store.swap(StoredConfig(u.revision, ...))
- *              → markSynced; u.revision ≤ поточна → ігнор (дубль
- *              catch-up/live — D4). У будь-якому разі перше повідомлення
- *              після конекту → backoff.reset() (камінь #4)
+ *              → markSynced; u.revision ≤ поточна → ігнор (дубль між
+ *              catch-up і live-потоком). Будь-яке повідомлення після
+ *              конекту → backoff.reset()
  *            - HEARTBEAT: markSynced(поточна); якщо hb.revision &gt; поточна —
- *              пропущена дельта → cancel → STREAM (без снапшота: сервер
- *              докине склеєну дельту з fromRevision)
- *            - SNAPSHOT_REQUIRED → SNAPSHOT (без backoff-паузи: це
- *              узгоджене перезавантаження, не помилка)
- *            - маркер помилки (onError-сентинел, камінь #2)
- *              → sleep(backoff) → STREAM
+ *              дельту втрачено дорогою → cancel → STREAM (без снапшота:
+ *              сервер докине склеєну дельту з fromRevision)
+ *            - SNAPSHOT_REQUIRED → SNAPSHOT (без backoff-паузи: розрив
+ *              ревізій завеликий для дельти, сервер просить узгоджене
+ *              перезавантаження — це не помилка)
+ *            - Throwable з onError → sleep(backoff) → STREAM
+ *            - маркер onCompleted → sleep(backoff) → STREAM
  *
  * SHUTDOWN (onStop): cancel стріму + shutdownNow виконавця (перерве і
- *            sleep, і poll) — E-09 частково.
+ *            sleep, і poll).
  * </pre>
  *
+ * <p>Дефолт read-timeout {@code 45s} — 3× heartbeat-інтервал CP. Backoff —
+ * експоненційний із full jitter, скидається на кожне живе повідомлення.
+ *
  * <p>Під час будь-якого розриву store НЕ чіпається — edge продовжує
- * відповідати останньою конфігурацією (вибір AP), staleness росте.
+ * відповідати останньою конфігурацією (вибір AP: доступність важливіша за
+ * свіжість), росте лише staleness-метрика.
  */
 @ApplicationScoped
 public class ConfigSyncLoop {
@@ -154,7 +153,7 @@ public class ConfigSyncLoop {
         ConfigServiceGrpc.newStub(channel).streamConfig(StreamRequest.newBuilder()
             .setEnvironmentKey(environment)
             .setFromRevision(currentStoredConfig.revision())
-            .setEdgeInstanceId("edge-config") //todo: підставити правильний айді. Наприклад hostname + випадковий суфікс (у K8s це стане pod name).
+            .setEdgeInstanceId("edge-config") // TODO: замінити на унікальний ідентифікатор інстанса (hostname + суфікс; у K8s — ім'я pod-а)
             .build(), observer);
 
         boolean isFirst = true;

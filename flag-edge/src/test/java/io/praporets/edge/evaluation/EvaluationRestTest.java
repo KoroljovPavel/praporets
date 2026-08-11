@@ -17,9 +17,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
- * 02e: REST-обчислення (E-03, V5) + контракт помилок RFC 9457 (V6).
- * Store не мутується — дефолтний профіль, спільний контекст із
- * {@code EdgeStartupTest}; канонічний снапшот ревізії 7.
+ * Специфікує REST-обчислення ({@code POST /api/v1/evaluate}) + контракт
+ * помилок RFC 9457. Store не мутується — дефолтний профіль, спільний
+ * контекст із {@code EdgeStartupTest}; канонічний снапшот ревізії 7.
  */
 @QuarkusTest
 @QuarkusTestResource(value = FakeControlPlane.class, restrictToAnnotatedClass = true)

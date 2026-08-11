@@ -8,15 +8,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
 /**
- * Декларація топіків (K1): {@code KafkaAdmin} із spring-kafka знаходить усі
+ * Декларація Kafka-топіків: {@code KafkaAdmin} із spring-kafka знаходить усі
  * {@code NewTopic}-біни і створює відсутні при старті (ідемпотентно; існуючі
  * не чіпає). Auto-create на брокері вимкнений свідомо — топологія топіка
  * має жити в коді, а не виникати як side effect першої відправки.
- *
- * <p><b>Бін (твоя реалізація):</b> {@code KafkaTopics.FLAG_CHANGES},
- * 3 партиції, replication factor 1 (один брокер у dev/тестах; у K8s це
- * стане values-параметром), config {@code cleanup.policy=compact} —
- * зручно через {@code TopicBuilder.name(...).partitions(...).compact()}.
+ * Replication factor 1 — один брокер у dev/тестах; топік змін compacted,
+ * щоб новий споживач бачив останній стан кожного середовища.
  */
 @Configuration
 public class KafkaTopicsConfig {

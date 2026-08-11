@@ -1,10 +1,6 @@
 package io.praporets.controlplane.api;
 
-import io.praporets.controlplane.api.dto.CreateEnvironmentRequest;
-import io.praporets.controlplane.api.dto.EnvironmentResponse;
-import io.praporets.controlplane.api.dto.RevisionResponse;
-import io.praporets.controlplane.api.dto.RollbackRequest;
-import io.praporets.controlplane.api.dto.RollbackResponse;
+import io.praporets.controlplane.api.dto.*;
 import io.praporets.controlplane.service.EnvironmentService;
 import io.praporets.controlplane.service.RollbackService;
 import jakarta.validation.Valid;
@@ -15,12 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * {@code /api/v1/environments} (CP-01) + журнал ревізій.
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @RestController},
- * {@code @RequestMapping("/api/v1/environments")}, method-анотації,
- * {@code @Valid} на тілах, {@code @RequestHeader(name = "X-Actor",
- * defaultValue = "anonymous")} для actor (G7).
+ * {@code /api/v1/environments}: CRUD середовищ, журнал ревізій і rollback.
+ * Actor мутацій береться з заголовка {@code X-Actor}
+ * (за замовчуванням {@code anonymous}).
  */
 @RestController
 @RequestMapping("/api/v1/environments")
@@ -55,9 +48,8 @@ public class EnvironmentController {
     }
 
     /**
-     * {@code POST /{env}/rollback} (CP-06) → 200 | 404 (немає середовища) |
-     * 400 ({@code toRevision} поза діапазоном, H6). Мутація → actor з X-Actor
-     * (G7), як у create.
+     * {@code POST /{env}/rollback} → 200 | 404 (немає середовища) |
+     * 400 ({@code toRevision} поза діапазоном).
      */
     @PostMapping("/{env}/rollback")
     public RollbackResponse rollback(@PathVariable(name = "env") String environmentKey,

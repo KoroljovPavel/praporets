@@ -17,41 +17,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * A-07: порівняння фактичних часток rollout-обчислень з очікуваними вагами
- * на останньому закритому вікні (I3–I6).
+ * Детекція відхилення rollout: порівняння фактичних часток rollout-обчислень
+ * з очікуваними вагами на останньому закритому хвилинному вікні. Результат —
+ * метрика {@code praporets_rollout_deviation} (по рядку на варіант) плюс
+ * WARN-лог, коли відхилення перевищує поріг.
  *
- * <p><b>Залежності для інжекту:</b> {@link DeviationRepository},
- * {@link RolloutExpectations}, {@code MeterRegistry},
- * {@code @ConfigProperty}-аналоги Boot ({@code @Value}):
- * {@code praporets.analytics.deviation.{enabled, threshold, min-sample}}.
+ * <p>Гейдж — {@code MultiGauge}, бо рядків змінна кількість з динамічними
+ * тегами (environment/flag/variant); кожен прогін реєструє повний набір
+ * рядків з overwrite — застарілі рядки не виживають між вікнами.
  *
- * <p><b>Поле-гейдж:</b>
- * {@code MultiGauge deviation = MultiGauge.builder("praporets_rollout_deviation")
- * .description(...).register(meterRegistry);} — MultiGauge, бо рядків
- * змінна кількість з динамічними тегами (I5).
- *
- * <p><b>{@code check(windowStart)} (твоя робота):</b>
- * <ol>
- *   <li>{@code rolloutCounts(windowStart)} → згрупувати по (environment,
- *       flagKey);</li>
- *   <li>для кожного флага: {@code weightsFor(env, flag)} порожній → скіп
- *       (rollout уже зняли — вікно історичне); {@code total < minSample} →
- *       скіп (I4);</li>
- *   <li>для КОЖНОГО варіанта з очікувань (включно з відсутніми у вікні —
- *       їхній факт 0, I5): {@code deviation = count/total − weight/100_000.0}
- *       (камінь #4: цілочисельний поділ!);</li>
- *   <li>рядки {@code MultiGauge.Row.of(Tags.of("environment", env, "flag",
- *       flag, "variant", v), deviation)} — зібрати ВСІ і одним
- *       {@code deviation.register(rows, true)} (overwrite, камінь #6);</li>
- *   <li>{@code |deviation| > threshold} хоч в одного варіанта → ОДИН WARN
- *       на флаг зі значеннями по варіантах (I6).</li>
- * </ol>
- *
- * <p><b>{@code tick} (твоя робота):</b> {@code @Scheduled(fixedDelayString =
- * "${praporets.analytics.deviation.check-interval}")}; якщо
- * {@code enabled} → {@code check(Instant.now().truncatedTo(MINUTES)
- * .minus(1, MINUTES))}. Гейт property — щоб тести смикали {@code check}
- * руками без фонових перегонів (патерн relay 03a).
+ * <p>Налаштування — {@code praporets.analytics.deviation.*}:
+ * {@code enabled}, {@code threshold}, {@code min-sample},
+ * {@code check-interval}.
  */
 @Component
 public class DeviationChecker {
@@ -80,6 +57,11 @@ public class DeviationChecker {
         deviation = MultiGauge.builder("praporets_rollout_deviation").register(meterRegistry);
     }
 
+    /**
+     * Плановий запуск: перевіряє останнє ЗАКРИТЕ вікно (попередню хвилину).
+     * Property-гейт {@code enabled} дозволяє тестам вимкнути фон і смикати
+     * {@link #check} руками без перегонів із планувальником.
+     */
     @Scheduled(fixedDelayString = "${praporets.analytics.deviation.check-interval}")
     void tick() {
         if (deviationEnabled) {
@@ -89,6 +71,20 @@ public class DeviationChecker {
 
     /**
      * Перевірка одного вікна; викликається тіком і тестами.
+     * <ol>
+     *   <li>rollout-лічильники вікна групуються по (environment, flagKey);</li>
+     *   <li>{@code total < minSample} → флаг скіпається: на малій вибірці
+     *       біноміальний шум дає хибні спрацювання, гейджа для флага не
+     *       буде взагалі;</li>
+     *   <li>флаг без очікувань (rollout уже зняли) — скіп;</li>
+     *   <li>для КОЖНОГО варіанта з очікувань (включно з відсутніми у
+     *       вікні — їхній факт 0, тобто найгірше відхилення, а не «немає
+     *       даних»): {@code deviation = факт/total − вага/100000};</li>
+     *   <li>усі рядки реєструються одним {@code register(rows, true)}
+     *       (overwrite);</li>
+     *   <li>{@code |deviation| > threshold} хоч в одного варіанта —
+     *       ОДИН WARN на флаг із розбивкою по варіантах.</li>
+     * </ol>
      */
     public void check(Instant windowStart) {
         Map<GroupingKey, List<DeviationRepository.RolloutCount>> groupingRolloutCountByEnvAndFlagKey =

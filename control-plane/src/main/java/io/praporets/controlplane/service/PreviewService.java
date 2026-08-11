@@ -12,24 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Dry-run обчислення через {@code praporets-core} (CP-11, H2/H3). Перше місце,
- * де control-plane ВИКОРИСТОВУЄ ядро — та сама бібліотека, що працюватиме на
- * edge, тож preview ніколи не розійдеться з реальним обчисленням.
+ * Dry-run обчислення флага через {@code praporets-core} — та сама бібліотека,
+ * що працює на edge, тож preview ніколи не розійдеться з реальним
+ * обчисленням.
  *
- * <p><b>Реалізація (твоя робота):</b>
- * <ol>
- *   <li>середовище за ключем — немає → {@link NotFoundException} (єдиний
- *       не-200 сценарій, H2); з нього ж бери {@code revision} для відповіді;</li>
- *   <li>{@code assembler.assembleForFlag(...)} →
- *       {@code Evaluator.evaluate(config, flagKey, context)};</li>
- *   <li>відповідь: {@code value = result.jsonValue() == null ? null :
- *       jsonMapper.readTree(result.jsonValue())} — обережно, D6 і
- *       FLAG_NOT_FOUND дають {@code null}.</li>
- * </ol>
- *
- * <p><b>H3:</b> чистий dry-run — ЖОДНИХ викликів {@code RevisionRecorder};
- * {@code readOnly = true} і по духу, і по букві (тест пінить, що журнал
- * після preview не росте).
+ * <p>Чистий dry-run — жодних викликів {@code RevisionRecorder}, транзакція
+ * {@code readOnly}: після preview журнал ревізій і аудит не ростуть.
  */
 @Service
 @Transactional(readOnly = true)
@@ -46,7 +34,14 @@ public class PreviewService {
         this.environmentRepository = environmentRepository;
     }
 
-    /** @throws NotFoundException якщо середовища немає (єдиний не-200, H2) */
+    /**
+     * Обчислює флаг для заданого контексту без побічних ефектів. Невідомий
+     * флаг — не помилка: ядро поверне {@code FLAG_NOT_FOUND}, а {@code value}
+     * у відповіді буде {@code null}. {@code revision} у відповіді — поточна
+     * ревізія середовища.
+     *
+     * @throws NotFoundException якщо середовища немає (єдиний не-200 сценарій)
+     */
     public EvaluatePreviewResponse preview(EvaluatePreviewRequest request) {
         Environment environment = environmentRepository.findByKey(request.environment())
             .orElseThrow(() -> new NotFoundException("Entity with key [" + request.environment() + "] not found"));

@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Фейковий control-plane для тестів edge: справжній grpc-java сервер на
- * ефемерному порту. З 02d стрім керований із тестів: кожне підключення —
+ * ефемерному порту. Стрім керований із тестів: кожне підключення —
  * {@link StreamSession}, якій можна веліти слати дельти/heartbeat-и/
  * SnapshotRequired або обірватись.
  *

@@ -12,9 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * {@code /api/v1/environments/{env}/segments} (CP-04).
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @RestController} + анотації.
+ * {@code /api/v1/environments/{env}/segments}: сегменти середовища.
  * PUT відповідає 201 при створенні і 200 при заміні —
  * {@code Upserted.created()} каже, що сталося.
  */

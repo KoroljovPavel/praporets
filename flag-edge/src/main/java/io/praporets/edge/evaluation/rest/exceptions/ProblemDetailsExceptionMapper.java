@@ -5,11 +5,12 @@ import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
 /**
- * {@link UnknownEnvironmentException} → 404 у форматі RFC 9457
- * {@code application/problem+json} (V6).
+ * Будь-який {@link ProblemDetailsException} → HTTP-відповідь у форматі
+ * RFC 9457 {@code application/problem+json}: статус, title і detail — з
+ * винятку.
  *
  * <p><b>Контракт відповіді:</b> {@code {"type":"about:blank",
- * "title":"Not Found","status":404,"detail":"<message винятку>"}} з
+ * "title":"<title>","status":<statusCode>,"detail":"<detail>"}} з
  * {@code Content-Type: application/problem+json}.
  */
 @Provider

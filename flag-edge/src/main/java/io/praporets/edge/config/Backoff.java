@@ -3,7 +3,7 @@ package io.praporets.edge.config;
 import java.util.function.DoubleSupplier;
 
 /**
- * Експоненційний backoff із full jitter (E-06): затримка =
+ * Експоненційний backoff із full jitter: затримка =
  * {@code uniform(0, стеля)}, стеля стартує з {@code baseMillis} і подвоюється
  * на кожен виклик до {@code capMillis}. Чому full jitter, а не «чистий»
  * експоненційний: сотні edge-ів, що втратили CP одночасно (деплой, падіння),
@@ -11,10 +11,9 @@ import java.util.function.DoubleSupplier;
  * (thundering herd) — рандомізація розмазує їх у часі.
  *
  * <p>Чистий клас без Quarkus — юніт-тести без сну і без рефлексії.
- * Не потокобезпечний — ним володіє єдиний тред {@link ConfigSyncLoop} (D1).
+ * Не потокобезпечний — ним володіє єдиний тред {@link ConfigSyncLoop}.
  *
- * <p>Конструктор — частина контракту (пінять тести): {@code jitterSource}
- * повертає число з [0, 1); прод-код передає
+ * <p>{@code jitterSource} повертає число з [0, 1); прод-код передає
  * {@code ThreadLocalRandom.current()::nextDouble}, тести — детермінований
  * supplier.
  */

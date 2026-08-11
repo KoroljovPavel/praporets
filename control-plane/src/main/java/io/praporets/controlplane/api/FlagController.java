@@ -12,13 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * {@code /api/v1/flags} (CP-02).
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @RestController} + анотації.
- * If-Match — {@code @RequestHeader("If-Match") long} (обов'язковий: відсутність
- * заголовка Spring сам зробить 400 через {@code MissingRequestHeaderException}).
- * {@code Pageable} Boot збирає з {@code ?page=&size=} автоматично; у відповіді —
- * {@code new PagedModel<>(page)} (G9).
+ * {@code /api/v1/flags}: CRUD глобального довідника флагів. Оновлення
+ * захищене обов'язковим {@code If-Match} (відсутність заголовка Spring сам
+ * перетворює на 400 через {@code MissingRequestHeaderException}).
  */
 @RestController
 @RequestMapping("/api/v1/flags")

@@ -66,7 +66,7 @@ class EvaluationResultTest {
 
     @Test
     void json_value_may_be_null_when_variant_definition_is_missing() {
-        // D6: variantKey відомий, але значення в variants не знайдено
+        // variantKey відомий, але значення в variants не знайдено
         var result = new EvaluationResult("f", Reason.DEFAULT, "ghost", null, null);
 
         assertThat(result.jsonValue()).isNull();

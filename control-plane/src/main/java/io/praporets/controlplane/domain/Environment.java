@@ -12,11 +12,8 @@ import java.util.UUID;
 
 /**
  * Середовище ({@code dev}/{@code staging}/{@code prod}) — таблиця {@code environment}.
- *
- * <p><b>Мапінг (твоя робота):</b> {@code @Entity}; id — UUID, генерується Hibernate
- * ({@code @UuidGenerator}); {@code key} — unique за схемою; {@code revision} —
- * монотонний лічильник, який інкрементуватиме application-шар (01g), тут просто
- * колонка; {@code created_at} — {@code @CreationTimestamp}.
+ * {@code revision} — монотонний лічильник змін конфігурації, який інкрементує
+ * application-шар ({@code RevisionRecorder}) під row lock-ом.
  *
  * <p>{@code @Version} тут НЕ потрібен: environment не редагується конкурентно
  * (revision — не version, це доменний лічильник змін конфігурації).

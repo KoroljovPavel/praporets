@@ -13,21 +13,15 @@ import org.springframework.stereotype.Component;
  *   <li>LB/NAT/ingress ріжуть «тихі» TCP-з'єднання за idle-таймаутом —
  *       heartbeat тримає їх живими;</li>
  *   <li>edge відрізняє «змін немає» від «стрім мертвий»: немає heartbeat
- *       довше N інтервалів → reconnect (02d);</li>
+ *       довше N інтервалів → reconnect;</li>
  *   <li>{@code ConfigUpdate.revision} у heartbeat = <b>поточна ревізія
  *       середовища</b> — дешевий детектор відставання: edge бачить у
  *       heartbeat ревізію більшу за свою → пропустив дельту → reconnect, не
  *       чекаючи наступної зміни.</li>
  * </ul>
  *
- * <p><b>Реалізація (твоя робота):</b> для кожного env із
- * {@code registry.activeEnvironments()}: ревізія з
- * {@code environmentRepository.findByKey} (середовища раптом нема — пропусти)
- * → {@code registry.publish(env, ConfigUpdate{revision,
- * heartbeat{server_time_millis = System.currentTimeMillis()}})}.
- *
- * <p>Потрібен {@code @EnableScheduling} на {@code ControlPlaneApplication} —
- * без нього анотація нижче мовчки не робить нічого. Інтервал —
+ * <p>Кожен тік обходить середовища з активними підписниками; середовище,
+ * якого раптом немає в БД, мовчки пропускається. Інтервал —
  * {@code praporets.grpc.heartbeat-interval} (тести ставлять мілісекунди,
  * прод — 15s).
  */

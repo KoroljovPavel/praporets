@@ -11,12 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * {@code /api/v1/environments/{env}/flags/{key}/config} + {@code .../toggle} (CP-03).
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @RestController} + анотації.
- * If-Match тут ОПЦІЙНИЙ на рівні HTTP ({@code @RequestHeader(required = false)
- * Long}) — обов'язковість залежить від того, чи існує конфігурація, і це
- * вирішує сервіс (G4). Toggle — без If-Match узагалі (G5).
+ * {@code /api/v1/environments/{env}/flags/{key}/config} + {@code .../toggle}:
+ * конфігурація флага в середовищі. If-Match тут ОПЦІЙНИЙ на рівні HTTP —
+ * обов'язковість залежить від того, чи існує конфігурація, і це вирішує
+ * сервіс. Toggle (kill switch) — без If-Match узагалі, last-write-wins.
  */
 @RestController
 @RequestMapping("/api/v1/environments/{env}/flags/{key}")

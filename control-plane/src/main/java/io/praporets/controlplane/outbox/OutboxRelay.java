@@ -20,45 +20,23 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Доставляє події з outbox у Kafka (K5): планувальник кожні
+ * Доставляє події з outbox у Kafka: планувальник кожні
  * {@code praporets.outbox.relay.poll-interval} захоплює пачку через
  * {@code FOR UPDATE SKIP LOCKED} і публікує. Семантика at-least-once —
  * падіння між send і commit дасть повтор, дедуп на споживачах за ревізією.
  *
- * <p><b>Залежності для інжекту:</b> {@code OutboxRepository},
- * {@code KafkaTemplate<String, String>}, {@code MeterRegistry},
- * {@code @Value}-властивості {@code praporets.outbox.relay.enabled} і
- * {@code praporets.outbox.relay.batch-size}.
+ * <p>У конструкторі реєструється Micrometer-гейдж
+ * {@code praporets.outbox.lag.seconds} (Prometheus-експортер перетворить на
+ * {@code praporets_outbox_lag_seconds}) — вік найстарішої неопублікованої
+ * події в секундах, 0 якщо черга порожня.
  *
- * <p><b>Гейдж (K6, реєструй у конструкторі):</b> Micrometer-ім'я
- * <b>{@code praporets.outbox.lag.seconds}</b> (крапки! Prometheus-експортер
- * сам перетворить на {@code praporets_outbox_lag_seconds}) =
- * age(найстаріший неопублікований) у секундах, 0.0 якщо порожньо — через
- * {@code outboxRepository.findOldestUnpublishedCreatedAt()}.
- *
- * <p><b>УВАГА, самовиклик:</b> {@code this.relayBatch()} зсередини
- * {@code scheduledTick()} обходить Spring-проксі — {@code @Transactional}
- * НЕ спрацює, лок відпуститься одразу після SELECT, і в проді SKIP LOCKED
- * стане беззубим (тести цього не зловлять — вони кличуть relayBatch через
- * проксі!). Найпростіше рішення: познач {@code @Transactional} і сам
- * {@code scheduledTick} — планувальник викликає його через проксі, а
- * вкладений relayBatch приєднається до транзакції.
- *
- * <p><b>{@code relayBatch()} (твоя реалізація):</b>
- * <ol>
- *   <li>{@code lockNextBatch(batchSize)};</li>
- *   <li>для кожного рядка:
- *       {@code kafkaTemplate.send(entry.topic(), entry.partitionKey(),
- *       entry.payload())} із заголовком {@code schema-version: 1}
- *       (через {@code ProducerRecord} + headers) і <b>синхронним</b>
- *       {@code .get(5, SECONDS)} (камінь #2) → {@code published_at = now()};</li>
- *   <li>помилка відправки → warn-лог, рядок НЕ чіпати, вихід із циклу
- *       (порядок! наступні рядки того ж env не повинні обігнати цей) —
- *       наступний тік повторить;</li>
- *   <li>повернути кількість опублікованих.</li>
- * </ol>
- * Метод public і {@code @Transactional} — тести смикають його напряму
- * (relay у тестових properties вимкнений, K7).
+ * <p>{@code @Transactional} стоїть і на {@code scheduledTick()} свідомо:
+ * самовиклик {@code this.relayBatch()} зсередини того ж біна обходить
+ * Spring-проксі, тож анотація на самому {@code relayBatch()} для
+ * планувальника не спрацювала б — лок відпускався б одразу після SELECT і
+ * SKIP LOCKED ставав би беззубим. Планувальник викликає {@code scheduledTick}
+ * через проксі, і вкладений {@code relayBatch} приєднується до його
+ * транзакції.
  */
 @Component
 public class OutboxRelay {
@@ -95,6 +73,20 @@ public class OutboxRelay {
             relayBatch();
     }
 
+    /**
+     * Публікує одну пачку: захоплює до {@code batch-size} найстаріших
+     * неопублікованих рядків і відправляє кожен у Kafka з заголовком
+     * {@code schema-version: 1} та <b>синхронним</b> очікуванням ack
+     * (5 секунд) — лише після ack рядок позначається опублікованим.
+     * Помилка або таймаут відправки → warn-лог і негайний вихід із циклу:
+     * наступні рядки того ж середовища не повинні обігнати проблемний,
+     * наступний тік повторить спробу.
+     *
+     * <p>Public і {@code @Transactional} — інтеграційні тести викликають
+     * його напряму (плановий relay у тестових properties вимкнений).
+     *
+     * @return кількість успішно опублікованих подій
+     */
     @Transactional
     public int relayBatch() {
         List<OutboxEntry> outboxEntries = outboxRepository.lockNextBatch(batchSize);

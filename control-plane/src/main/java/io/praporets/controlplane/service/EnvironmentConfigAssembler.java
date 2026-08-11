@@ -12,27 +12,17 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Збірка {@link EnvironmentConfig} (вхід ядра) з БД — H1. Окремий компонент,
- * а не приватний метод preview-сервіса: у 02b рівно цей самий код збиратиме
- * снапшоти для gRPC-стріму edge (там додасться метод «усі флаги середовища»).
+ * Збірка {@link EnvironmentConfig} (входу core-ядра) з БД для preview-обчислення.
  *
- * <p><b>Реалізація (твоя робота), {@link #assembleForFlag}:</b>
- * <ol>
- *   <li>{@code FlagConfigRepository.findByFlagKeyAndEnvironmentKey}:
- *       конфігурації немає → {@code flags = Map.of()} — ядро само поверне
- *       {@code FLAG_NOT_FOUND} (H2), це НЕ помилка;</li>
- *   <li>є → {@code FlagDefinition(flagKey, enabled, defaultVariant, offVariant,
- *       variants, rules, rollout)}. Entity {@code Variant.getValue()} (String
- *       з JSONB) → core {@code Variant(key, jsonValue)} напряму, без парсингу;
- *       {@code rules}/{@code rollout} з entity — вже core-records, віддавай як є;</li>
- *   <li><b>УСІ</b> сегменти середовища ({@code findAllByEnvironmentKey}) →
- *       core {@code Segment(key, conditions)} — правило {@code IN_SEGMENT}
- *       може вказувати на будь-який.</li>
- * </ol>
+ * <p>Якщо конфігурації флага в середовищі немає — флагів у результаті нуль,
+ * і ядро само поверне {@code FLAG_NOT_FOUND}: це НЕ помилка збірки. Сегменти
+ * беруться <b>усі</b> для середовища — правило {@code IN_SEGMENT} може
+ * вказувати на будь-який. Значення варіанта (JSON-рядок із JSONB) іде в core
+ * {@code Variant} напряму, без парсингу; {@code rules}/{@code rollout} з
+ * entity — вже core-records.
  *
- * <p>Ключ мапи = ключ сутності — інакше конструктор {@code EnvironmentConfig}
- * кине IAE (його інваріант). Існування середовища тут НЕ перевіряється —
- * це відповідальність викликача (preview мапить на 404).
+ * <p>Існування середовища тут НЕ перевіряється — це відповідальність
+ * викликача (preview мапить на 404).
  */
 @Component
 public class EnvironmentConfigAssembler {

@@ -7,17 +7,14 @@ import java.util.Optional;
 
 /**
  * Єдине сховище конфігурації edge-інстанса: незмінний знімок
- * {@code (revision, EnvironmentConfig)} за {@code AtomicReference} (E-02:
- * atomic swap). Читачі (обчислення в 02e, readiness) бачать або старий знімок
- * цілком, або новий цілком — жодних локів і жодного напівзастосованого стану.
+ * {@code (revision, EnvironmentConfig)} за volatile-посиланням — atomic swap.
+ * Читачі (обчислення, readiness) бачать або старий знімок цілком, або новий
+ * цілком — жодних локів і жодного напівзастосованого стану. Простий
+ * volatile-set достатній: писар один — фоновий тред {@link ConfigSyncLoop},
+ * і кожна заміна повна, тож CAS не потрібен.
  *
  * <p>Стартовий стан — «не завантажено» (порожній Optional): у цьому стані
  * readiness = DOWN, обчислення неможливе.
- *
- * <p><b>Реалізація (твоя робота):</b> тримай
- * {@code AtomicReference<StoredConfig>} (початково {@code null}); swap —
- * {@code set} нового record-а (заміна завжди повна, CAS не потрібен — писар
- * один: завантажувач снапшота, у 02d — той самий тред стріму).
  */
 @ApplicationScoped
 public class ConfigStore {

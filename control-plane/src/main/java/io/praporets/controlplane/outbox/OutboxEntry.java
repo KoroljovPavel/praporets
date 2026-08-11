@@ -12,26 +12,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Рядок таблиці {@code outbox} (V2, спека §5.1) — подія, що чекає на
- * доставку в Kafka.
+ * Рядок таблиці {@code outbox} — подія, що чекає на доставку в Kafka.
+ * Id генерується в застосунку (у конструкторі), payload — готовий
+ * JSON-рядок у JSONB-колонці; {@code publishedAt == null} означає
+ * «ще не в Kafka», relay ставить час після ack брокера.
  *
- * <p><b>Колонки → поля</b> (маппиш у своєму стилі, як в 01f):
- * <ul>
- *   <li>{@code id} UUID PK — генеруй в застосунку (UUIDv7/randomUUID у
- *       конструкторі), не в БД: ентіті з призначеним id;</li>
- *   <li>{@code aggregate_id} UUID — id середовища, до якого належить зміна;</li>
- *   <li>{@code topic} varchar(128) — {@code KafkaTopics.FLAG_CHANGES};</li>
- *   <li>{@code partition_key} varchar(128) — environmentKey (K3);</li>
- *   <li>{@code payload} JSONB — подія з K3 як JSON-рядок:
- *       {@code @JdbcTypeCode(SqlTypes.JSON)}, як у flag_config з 01f;</li>
- *   <li>{@code created_at} timestamptz NOT NULL — момент створення
- *       (застосунком, {@code Instant.now()});</li>
- *   <li>{@code published_at} timestamptz NULL — null = ще не в Kafka;
- *       relay ставить час після ack брокера.</li>
- * </ul>
- *
- * <p>Без {@code @Version}: за рядок конкурують лише relay-і, і їх розводить
- * {@code FOR UPDATE SKIP LOCKED}, а не оптимістичний лок.
+ * <p>Без {@code @Version}: за рядок конкурують лише relay-і різних реплік,
+ * і їх розводить {@code FOR UPDATE SKIP LOCKED}, а не оптимістичний лок.
  */
 @Entity
 @Table(name = "outbox")

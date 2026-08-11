@@ -32,13 +32,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * 03d-1: контракт конвеєра analytics — подія з топіка стає похвилинним
- * агрегатом рівно один раз (A-01/A-03/A-04), отрута їде в DLT (A-05/G5/G7).
+ * Контракт конвеєра analytics — подія з топіка стає похвилинним
+ * агрегатом рівно один раз, отрута їде в DLT.
  *
  * <p>Ізоляція — даними: кожен тест живе у своєму environment
  * ({@code an-<uuid>}), спільна БД/топік іншим тестам не заважають.
- * Group {@code analytics} з earliest — гонки «продюс до assignment» немає
- * (на відміну від 03b): консюмер прочитає й те, що було до підписки.
+ * Група консюмера з earliest — гонки «продюс до assignment» немає:
+ * консюмер прочитає й те, що було до підписки.
  *
  * <p>Той самий flagKey усередині тесту = той самий key = одна партиція =
  * гарантований порядок — на цьому стоять сценарії «отрута, потім валідна».
@@ -76,7 +76,7 @@ class AnalyticsEvaluationsConsumerTest {
         assertThat(row.get("flag_key")).isEqualTo(flagOf(env));
         assertThat(row.get("variant_key")).isEqualTo("on");
         assertThat(((Number) row.get("eval_count")).longValue()).isEqualTo(1);
-        // вікно — початок хвилини EVENT time (G6), секунди обрізані.
+        // вікно — початок хвилини EVENT time, секунди обрізані.
         // Порівнюємо ІНСТАНТИ: toString() Timestamp-а рендериться в
         // таймзоні JVM — рядковий асерт падав би поза UTC
         assertThat(((java.sql.Timestamp) row.get("window_start")).toInstant())
@@ -101,7 +101,7 @@ class AnalyticsEvaluationsConsumerTest {
 
         awaitTrue("бар'єр оброблено", () -> evalCount(env, "barrier") == 1);
         assertThat(evalCount(env, "on"))
-            .as("повторний evaluationId не інкрементить агрегат (A-04)")
+            .as("повторний evaluationId не інкрементить агрегат")
             .isEqualTo(1);
     }
 
@@ -137,7 +137,7 @@ class AnalyticsEvaluationsConsumerTest {
         String env = uniqueEnv();
         UUID evaluationId = UUID.randomUUID();
 
-        // variantKey: null — edge шле і такі (E8 з 03c)
+        // variantKey: null — edge шле і такі (FLAG_NOT_FOUND)
         produce(flagOf(env), payloadWithNullVariant(evaluationId, env, flagOf(env)), "1");
 
         awaitTrue("подію оброблено", () -> processedCount(evaluationId) == 1);
@@ -169,8 +169,9 @@ class AnalyticsEvaluationsConsumerTest {
         produce(flagOf(env), payload(UUID.randomUUID(), "2026-08-01T10:16:30Z", env, flagOf(env), "on"), "1");
 
         awaitTrue("валідна подія оброблена", () -> evalCount(env, "on") == 1);
-        // G7: на відміну від fan-out (03b) невідома версія НЕ скіпається —
-        // це дані, вони чекають у DLT на переграванння після апгрейду
+        // невідома версія НЕ скіпається (на відміну від відновлюваного
+        // fan-out-стану) — це дані, вони чекають у DLT на перегравання
+        // після апгрейду
         awaitDlt(value -> value.equals(futureEvent));
         assertThat(processedCount(evaluationId)).as("v99 не оброблялась").isZero();
     }
@@ -186,7 +187,7 @@ class AnalyticsEvaluationsConsumerTest {
     }
 
     /**
-     * K-payload дослівно у форматі edge (03c, спека §6.4).
+     * Payload дослівно у форматі, в якому його публікує flag-edge.
      */
     private static String payload(UUID evaluationId, String occurredAt, String env, String flagKey, String variant) {
         return """

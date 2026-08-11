@@ -1,9 +1,10 @@
 package io.praporets.core.model;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,7 +34,7 @@ class FlagModelTest {
                 .isInstanceOf(NullPointerException.class);
     }
 
-    // --- Rule (D3: рівно один результат) ---
+    // --- Rule: рівно один результат ---
 
     @Test
     void rule_with_fixed_variant_is_valid() {

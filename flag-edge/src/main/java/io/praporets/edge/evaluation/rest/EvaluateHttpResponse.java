@@ -2,7 +2,7 @@ package io.praporets.edge.evaluation.rest;
 
 /**
  * Відповідь {@code POST /api/v1/evaluate} — дзеркало gRPC
- * {@code EvaluateResponse} (V5). ГОТОВИЙ контракт.
+ * {@code EvaluateResponse}.
  *
  * <p>{@code jsonValue} — сирий JSON-рядок варіанта, як зберігається;
  * парсити його — справа клієнта. {@code variantKey}/{@code jsonValue}/

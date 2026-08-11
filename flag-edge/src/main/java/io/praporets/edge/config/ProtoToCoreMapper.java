@@ -14,27 +14,22 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Зворотний бік мапера з 02b: proto {@code ConfigSnapshot} → core
- * {@link EnvironmentConfig}. Виконується один раз на снапшот/дельту — гарячий
- * шлях обчислення (02e) працює вже з core-моделлю і proto не бачить.
+ * Мапер proto-контракту {@code praporets.config.v1} у core-модель:
+ * {@code ConfigSnapshot} → {@link EnvironmentConfig}, {@code ConfigDelta} →
+ * {@link Delta}. Виконується один раз на снапшот/дельту — гарячий шлях
+ * обчислення працює вже з core-моделлю і proto не бачить.
  *
  * <p>Stateless, без залежностей.
  *
- * <p><b>Реалізація (твоя робота):</b>
+ * <p>Ключові правила перекладу:
  * <ul>
- *   <li>кожен proto {@code FlagDefinition} → core {@code FlagDefinition(key,
- *       enabled, defaultVariant, offVariant, variants, rules, rollout)}; ключ
- *       мапи = {@code key} сутності, інакше конструктор
- *       {@code EnvironmentConfig} кине IAE (його інваріант);</li>
  *   <li>енуми — за ім'ям: core {@code Operator.valueOf(protoOperator.name())}.
- *       Напрям core ⊆ proto (drift-guard 02a) гарантує лише що ІМЕНА core
- *       існують у proto — у зворотний бік можуть прилетіти
- *       {@code OPERATOR_UNSPECIFIED} (зіпсований запис) → кидай
- *       {@code IllegalArgumentException}, хай стрім/снапшот упаде голосно, а
- *       не мовчки зламає обчислення;</li>
- *   <li>proto не має null: {@code flag.hasRollout() == false} → core
- *       {@code rollout = null}; те саме для {@code rule.hasRollout()};
- *       порожній {@code rule_id}/{@code variant_key} → {@code null} у core
+ *       {@code OPERATOR_UNSPECIFIED} (зіпсований запис) не має core-пари →
+ *       {@code IllegalArgumentException}: завантаження снапшота/дельти падає
+ *       голосно, а не мовчки ламає обчислення;</li>
+ *   <li>proto3 не має null: {@code hasRollout() == false} → core
+ *       {@code rollout = null} (і у флага, і у правила); порожній
+ *       {@code rule_id}/{@code variant_key} → {@code null} у core
  *       (proto3-дефолт «порожній рядок» — це і є «відсутнє»);</li>
  *   <li>{@code value_type} свідомо викидається — ядру він не потрібен
  *       (обчислення повертає jsonValue як рядок незалежно від типу).</li>
@@ -58,10 +53,10 @@ public class ProtoToCoreMapper {
     }
 
     /**
-     * 02d: proto-дельта → core {@link io.praporets.core.revision.Delta}.
-     * Реюзни ті самі приватні parse-хелпери, що й снапшот; removed-ключі —
-     * як є (це прості рядки). Ті самі правила: енуми за ім'ям, IAE на
-     * UNSPECIFIED — зіпсована дельта має падати голосно ДО swap-у.
+     * Proto-дельта → core {@link io.praporets.core.revision.Delta}: upsert-и
+     * флагів/сегментів через ті самі правила, що й снапшот, removed-ключі —
+     * як є. Зіпсована дельта (UNSPECIFIED-енум) падає IAE ДО swap-у
+     * конфігурації.
      */
     public Delta toDelta(ConfigDelta protoDelta) {
         List<FlagDefinition> upsertedFlags = protoDelta.getUpsertedFlagsList().stream().map(this::parseFlag).toList();

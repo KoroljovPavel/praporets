@@ -25,47 +25,38 @@ import java.util.Properties;
 import java.util.concurrent.*;
 
 /**
- * Дренер буфера подій (E6): єдиний власник {@code KafkaProducer} і єдине
- * місце, де живе {@code send()} — з гарячого шляху його викликати ЗАБОРОНЕНО
- * (може блокувати до {@code max.block.ms}, камінь #2).
+ * Дренер буфера evaluation-подій: єдиний власник {@code KafkaProducer} і
+ * єдине місце, де живе {@code send()} — з гарячого шляху обчислення його
+ * викликати не можна (може блокувати до {@code max.block.ms}), тому
+ * обчислення лише кладе події в буфер {@link EvaluationEvents}, а цей клас
+ * зливає їх у Kafka фоновим daemon-тредом «edge-events-drainer».
  *
- * <p><b>Залежності для інжекту (конструктор — твоя робота):</b>
- * {@link EvaluationEvents}, {@code ObjectMapper} (бін Quarkus — НЕ
- * {@code new ObjectMapper()}, інакше {@code Instant} серіалізується числом,
- * камінь #6), {@code MeterRegistry} (лічильник {@code send_failed}),
- * {@code @ConfigProperty}: {@code kafka.bootstrap.servers},
- * {@code praporets.edge.events.enabled}, {@code praporets.edge.events.batch-size}.
- *
- * <p><b>{@code onStart} (твоя робота):</b> якщо {@code enabled == false} —
- * тихий return (тестові контексти без Kafka). Інакше: зібрати
- * {@code KafkaProducer<String, String>} (StringSerializer ×2;
- * {@code delivery.timeout.ms=5000} — E7, короткоживучі події) і запустити
- * daemon-тред «edge-events-drainer» із циклом:
+ * <p><b>Старт ({@code onStart}):</b> якщо
+ * {@code praporets.edge.events.enabled == false} — тихий return (тестові
+ * контексти без Kafka). Інакше збирається
+ * {@code KafkaProducer<String, String>} (String-серіалізатори; короткі
+ * таймаути — події короткоживучі, довго ретраїти немає сенсу:
+ * {@code delivery.timeout.ms=5100}, {@code request.timeout.ms=5000},
+ * {@code max.block.ms=2000}, {@code linger.ms=100}) і запускається цикл:
  * <ol>
- *   <li>{@code first = queue.poll(100ms)} (через
- *       {@code events.drainTo}? — ні: перший елемент бери блокуючим
- *       {@code poll} з таймаутом, щоб не крутити CPU; додай у
- *       {@code EvaluationEvents} package-private метод або тримай сам цикл
- *       на {@code drainTo} + {@code Thread.sleep(100)} — обидва варіанти
- *       прийнятні, обери і зафіксуй коментарем);</li>
- *   <li>добрати решту: {@code drainTo(batch, batchSize - 1)};</li>
- *   <li>для кожної події: JSON через ObjectMapper →
+ *   <li>перша подія — блокуючим {@code poll(100ms)} з буфера, щоб не
+ *       крутити CPU на порожній черзі;</li>
+ *   <li>решта батча — {@code drainTo(batch, batchSize - 1)};</li>
+ *   <li>кожна подія: JSON через Quarkus-ів {@code ObjectMapper} (бін, не
+ *       {@code new} — інакше {@code Instant} серіалізувався б числом) →
  *       {@code ProducerRecord(TOPIC, flagKey, json)} + header
- *       {@code schema-version: "1"} → {@code producer.send(record, callback)};
- *       у callback помилка → {@code flag_edge_events_dropped_total{reason="send_failed"}}
- *       + warn-лог (НЕ error на кожну — Kafka може лежати довго);</li>
- *   <li>увесь цикл ітерації — у {@code try/catch}: дренер не має права
- *       померти від одного битого елемента (камінь #7).</li>
+ *       {@code schema-version: "1"} → асинхронний {@code send} із callback;
+ *       помилка відправки чи серіалізації →
+ *       {@code flag_edge_events_dropped_total{reason="send_failed"}} +
+ *       warn-лог (не error на кожну — Kafka може лежати довго);</li>
+ *   <li>уся ітерація — у {@code try/catch}: дренер не має права померти від
+ *       одного битого елемента.</li>
  * </ol>
  *
- * <p><b>{@code onStop} (твоя робота, E-09):</b> підняти стоп-прапорець,
- * дочекатись тред ({@code join} з таймаутом), злити залишок буфера в
- * producer, {@code producer.flush()}, {@code producer.close(Duration)};
- * залогувати скільки подій дреновано.
- *
- * <p>Тіла lifecycle-методів ЗАРАЗ порожні свідомо: UOE з
- * {@code @Observes StartupEvent} поклав би застосунок і всі старі тести
- * (камінь #3). Червоними крок тримають тести буфера і публікації.
+ * <p><b>Зупинка ({@code onStop}):</b> стоп-прапорець → очікування треда
+ * (до 5с, далі cancel) → злиття залишку буфера в producer →
+ * {@code producer.flush()} → {@code producer.close()}; у лог — скільки
+ * подій дреновано під час shutdown.
  */
 @ApplicationScoped
 public class EvaluationEventPublisher {
@@ -103,7 +94,7 @@ public class EvaluationEventPublisher {
     private Future<?> workerFuture;
 
     /**
-     * Топік подій (спека §6.4); key = flagKey.
+     * Топік evaluation-подій; key повідомлення = flagKey.
      */
     public static final String TOPIC = "praporets.flag.evaluations.v1";
 

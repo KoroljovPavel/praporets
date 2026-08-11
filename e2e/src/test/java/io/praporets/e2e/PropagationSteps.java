@@ -11,11 +11,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Кроки {@code propagation.feature}: зміна флага доїжджає до ВСІХ
- * edge-реплік (03e, сценарій 1).
+ * edge-реплік у межах SLA.
  *
  * <p><b>Стан між кроками:</b> Cucumber створює новий інстанс цього класу на
- * кожен сценарій — додай поля сам (ревізія до перемикання, момент toggle-у
- * для SLA-таймера). Полів у скелеті свідомо немає.
+ * кожен сценарій; поля тримають ревізію до перемикання і момент toggle-у
+ * для SLA-таймера.
  *
  * <p><b>Контракт часу (ключове!):</b> SLA «1 секунда» міряється від моменту
  * ПОВЕРНЕННЯ {@code toggleFlag(true)} у Коли-кроці до моменту, коли остання
@@ -30,11 +30,12 @@ public class PropagationSteps {
     private long revisionBeforeToggle;
 
     /**
-     * Піднімає (ліниво) спільний стек {@link E2eStack#ensureStarted()} і
-     * перевіряє передумову: {@code replicas} == {@link E2eStack#EDGE_COUNT}
-     * (фіча документує топологію — розбіжність має валити сценарій, а не
-     * мовчки ігноруватись), {@code environment} == {@link E2eStack#ENVIRONMENT}.
-     * Стек уже дочекався readiness усіх реплік — додаткових очікувань не треба.
+     * Піднімає (ліниво) спільний стек через {@link E2eStack#ensureStarted()}
+     * і guard-асертами перевіряє передумову: {@code replicas} ==
+     * {@link E2eStack#EDGE_COUNT}, {@code environment} ==
+     * {@link E2eStack#ENVIRONMENT} — фіча документує топологію, розбіжність
+     * має валити сценарій, а не мовчки ігноруватись. Стек уже дочекався
+     * readiness усіх реплік — додаткових очікувань не треба.
      */
     @Дано("запущений стек із {int} edge-репліками, підписаними на середовище {string}")
     public void запущений_стек(int replicas, String environment) {
@@ -44,11 +45,10 @@ public class PropagationSteps {
     }
 
     /**
-     * Приводить флаг у вимкнений baseline: {@link E2eStack#toggleFlag
-     * toggleFlag(false)} і {@link E2eStack#await await} (дедлайн до 60с —
-     * це бар'єр, не замір), доки КОЖНА з {@link E2eStack#EDGE_COUNT} реплік
-     * не звітує {@code reason=FLAG_DISABLED} (variant {@code off}) через
-     * {@link E2eStack#edgeEvaluate edgeEvaluate(i, "UA")}. Побічний ефект —
+     * Приводить флаг у вимкнений baseline: {@code toggleFlag(false)} і
+     * очікування (дедлайн 60с — це бар'єр, не замір), доки КОЖНА з
+     * {@value E2eStack#EDGE_COUNT} реплік не звітує
+     * {@code reason=FLAG_DISABLED} (variant {@code off}). Побічний ефект —
      * прогрітий шлях пропагації (Kafka-продюсер CP, стріми) перед SLA-заміром.
      */
     @Дано("флаг {string} вимкнено")
@@ -71,10 +71,9 @@ public class PropagationSteps {
     }
 
     /**
-     * Дія оператора: запам'ятай ревізію середовища ДО зміни
-     * ({@link E2eStack#currentCpRevision()}) у поле, виконай
-     * {@code toggleFlag(true)} і зафіксуй {@code System.nanoTime()} у поле —
-     * старт SLA-таймера для наступного кроку.
+     * Дія оператора: запам'ятовує ревізію середовища ДО зміни
+     * ({@link E2eStack#currentCpRevision()}), вмикає флаг і фіксує
+     * {@code System.nanoTime()} — старт SLA-таймера для наступного кроку.
      */
     @Коли("оператор вмикає флаг {string}")
     public void оператор_вмикає_флаг(String flagKey) {
@@ -91,11 +90,9 @@ public class PropagationSteps {
     /**
      * SLA-перевірка: у межах {@code seconds} від зафіксованого моменту toggle-у
      * КОЖНА з {@code replicas} реплік має звітувати увімкнений флаг —
-     * {@code edgeEvaluate(i, "UA")} → {@code reason=RULE_MATCH}, variant
-     * {@code on}. Дедлайн await-а рахуй ВІД моменту toggle-у (частина бюджету
-     * вже з'їдена HTTP-запитами), не від входу в цей крок.
-     *
-     * <p>Fail з діагностикою: яка репліка не встигла і що звітувала.
+     * {@code reason=RULE_MATCH}, variant {@code on}. Дедлайн очікування
+     * рахується ВІД моменту toggle-у, не від входу в цей крок: частина
+     * бюджету на кожну наступну репліку вже з'їдена попередніми перевірками.
      */
     @Тоді("всі {int} edge-репліки за {int} секунду звітують флаг як увімкнений")
     public void всі_репліки_звітують_увімкнений(int replicas, int seconds) {
@@ -116,9 +113,9 @@ public class PropagationSteps {
     }
 
     /**
-     * Кожна репліка несе НОВУ ревізію: {@code edgeEvaluate(i, "UA").get("revision")}
-     * на всіх репліках == {@link E2eStack#currentCpRevision()} (незалежне
-     * джерело — БД) і строго більша за ревізію, запам'ятовану ДО toggle-у.
+     * Кожна репліка несе НОВУ ревізію: {@code revision} у відповіді всіх
+     * реплік == {@link E2eStack#currentCpRevision()} (незалежне джерело —
+     * БД) і строго більша за ревізію, запам'ятовану ДО toggle-у.
      */
     @Тоді("кожна відповідь несе нову ревізію середовища")
     public void кожна_відповідь_несе_нову_ревізію() {

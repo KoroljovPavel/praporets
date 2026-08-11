@@ -12,20 +12,16 @@ import java.util.List;
  * Мапінг доменного стану (entity + core-records із JSONB) → proto-повідомлення
  * {@code praporets.config.v1}. Stateless, без транзакцій — чиста трансформація.
  *
- * <p><b>Реалізація (твоя робота).</b> Core-records дзеркалять proto 1:1, тож
- * мапінг механічний, але зверни увагу:
+ * <p>Core-records дзеркалять proto 1:1, тож мапінг механічний. Особливості:
  * <ul>
- *   <li>енуми мапляться <b>за ім'ям</b>: {@code
- *       io.praporets.grpc.config.v1.Operator.valueOf(coreOperator.name())} і
- *       так само domain {@code ValueType} → proto {@code ValueType}. Що ім'я
- *       існує в proto — гарантує drift-guard {@code CoreProtoAlignmentTest}
- *       з 02a;</li>
+ *   <li>енуми мапляться <b>за ім'ям</b> ({@code Operator.valueOf(name())},
+ *       {@code ValueType.valueOf(name())}) — що ім'я існує в proto, гарантує
+ *       drift-guard-тест вирівнювання core ↔ proto;</li>
  *   <li>у proto немає {@code null}: відсутній {@code rollout} (флага або
- *       правила) — просто НЕ викликай {@code setRollout(...)}, читач побачить
- *       {@code hasRollout() == false}. Те саме для порожнього
- *       {@code rule_id};</li>
+ *       правила) — {@code setRollout(...)} просто не викликається, читач
+ *       побачить {@code hasRollout() == false};</li>
  *   <li>entity {@code Variant.getValue()} — вже канонічний JSON-рядок із
- *       JSONB → прямо в {@code json_value}, без парсингу;</li>
+ *       JSONB, тому йде прямо в {@code json_value}, без парсингу;</li>
  *   <li>{@code value_type}, {@code key} і {@code variants} живуть на
  *       {@code config.getFlag()} (глобальна сутність), решта — на самому
  *       {@code FlagConfig}.</li>

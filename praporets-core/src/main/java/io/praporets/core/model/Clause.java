@@ -15,15 +15,15 @@ import java.util.Objects;
  *
  * <p><b>Інваріанти:</b> {@code attribute} не blank; {@code operator} не {@code null};
  * {@code values} — незмінна захисна копія без {@code null}-елементів. Порожній
- * {@code values} легальний (такий clause просто нікого не матчить — рішення S6).
+ * {@code values} легальний (такий clause просто нікого не матчить).
  * Для {@code IN_SEGMENT} у {@code values} лежать ключі сегментів, а {@code attribute}
  * за конвенцією {@code "segment"} (не інтерпретується).
  *
  * @param attribute ім'я атрибута контексту ({@code country}, {@code plan}, {@code appVersion},
  *                  псевдо-атрибут {@code userKey} — див. {@link EvaluationContext#attribute})
  * @param operator  оператор порівняння
- * @param values    значення для порівняння, OR-семантика між ними (S1)
- * @param negate    інвертувати результат порівняння (S2)
+ * @param values    значення для порівняння, OR-семантика між ними
+ * @param negate    інвертувати результат порівняння
  */
 public record Clause(String attribute, Operator operator, List<String> values, boolean negate) {
 

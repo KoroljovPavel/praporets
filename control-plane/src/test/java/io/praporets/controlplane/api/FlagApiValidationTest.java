@@ -1,6 +1,5 @@
 package io.praporets.controlplane.api;
 
-import tools.jackson.databind.node.BooleanNode;
 import io.praporets.controlplane.api.dto.FlagResponse;
 import io.praporets.controlplane.api.dto.VariantDto;
 import io.praporets.controlplane.domain.ValueType;
@@ -12,6 +11,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.node.BooleanNode;
 
 import java.time.Instant;
 import java.util.List;
@@ -22,17 +22,12 @@ import static org.hamcrest.Matchers.endsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Веб-слайс без БД: HTTP-контракт FlagController + переклад помилок у
- * RFC 9457 (G3). Сервіс — мок; його семантику ганяє RevisionAndAuditFlowTest.
+ * RFC 9457. Сервіс — мок; його семантику ганяє RevisionAndAuditFlowTest.
  */
 @WebMvcTest(controllers = FlagController.class)
 class FlagApiValidationTest {

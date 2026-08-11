@@ -30,9 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 /**
- * 03d-3: детекція відхилення rollout (A-07, I1–I6). Планувальник вимкнено —
- * {@code check(window)} смикається руками (патерн relay 03a); min-sample
- * знижений до 50, щоб вибірки тестів були керовані.
+ * Детекція відхилення rollout. Планувальник вимкнено —
+ * {@code check(window)} смикається руками, без перегонів із фоновим тіком;
+ * min-sample знижений до 50, щоб вибірки тестів були керовані.
  *
  * <p>Ізоляція: унікальні env і РІЗНІ вікна на тест — {@code check}
  * читає все вікно цілком, спільне вікно тягло б чужі рядки.
@@ -71,7 +71,7 @@ class RolloutDeviationTest {
     void rollout_event_without_rule_increments_rollout_count() throws Exception {
         String env = uniqueEnv();
 
-        produceEvaluation(env, evaluation(env, "ROLLOUT", null));    // ← рахується (I2)
+        produceEvaluation(env, evaluation(env, "ROLLOUT", null));    // ← рахується
         produceEvaluation(env, evaluation(env, "ROLLOUT", "r1"));    // rule-level — ні
         produceEvaluation(env, evaluation(env, "RULE_MATCH", "r1")); // не rollout — ні
 
@@ -79,7 +79,7 @@ class RolloutDeviationTest {
         Long rollout = jdbc.queryForObject(
             "SELECT coalesce(sum(rollout_count), 0) FROM evaluation_agg WHERE environment = ?",
             Long.class, env);
-        assertThat(rollout).as("тільки flag-level ROLLOUT (I2)").isEqualTo(1);
+        assertThat(rollout).as("тільки flag-level ROLLOUT").isEqualTo(1);
     }
 
     @Test
@@ -92,7 +92,7 @@ class RolloutDeviationTest {
         assertThat(expectations.weightsFor(env, flag))
             .contains(Map.of("on", 30_000, "off", 70_000));
 
-        // upsert того ж флага БЕЗ rollout → очікування знімаються (камінь #2)
+        // upsert того ж флага БЕЗ rollout → очікування знімаються
         produceFlagChange(env, changeWithoutRollout(env, flag));
         awaitTrue("очікування зняті", () -> expectations.weightsFor(env, flag).isEmpty());
     }
@@ -113,7 +113,7 @@ class RolloutDeviationTest {
         assertThat(gaugeValue(env, flag, "on")).isCloseTo(0.5, within(1e-9));
         assertThat(gaugeValue(env, flag, "off")).isCloseTo(-0.5, within(1e-9));
         assertThat(output.getOut() + output.getErr())
-            .as("WARN з ключем флага (I6)").contains(flag);
+                .as("WARN з ключем флага").contains(flag);
     }
 
     @Test
@@ -130,7 +130,7 @@ class RolloutDeviationTest {
 
         assertThat(meterRegistry.find("praporets_rollout_deviation")
             .tags("environment", env).gauges())
-            .as("мала вибірка — ані гейджа (I4)").isEmpty();
+                .as("мала вибірка — ані гейджа").isEmpty();
         assertThat(output.getOut() + output.getErr()).doesNotContain(flag);
     }
 
@@ -148,7 +148,7 @@ class RolloutDeviationTest {
 
         assertThat(gaugeValue(env, flag, "on")).isCloseTo(0.5, within(1e-9));
         assertThat(gaugeValue(env, flag, "off"))
-            .as("зниклий варіант — найгірше відхилення, не «немає даних» (I5)")
+                .as("зниклий варіант — найгірше відхилення, не «немає даних»")
             .isCloseTo(-0.5, within(1e-9));
     }
 
@@ -163,7 +163,7 @@ class RolloutDeviationTest {
     }
 
     /**
-     * Evaluation-подія (топік 03c); вікно фіксоване 08:15.
+     * Evaluation-подія у форматі edge; вікно фіксоване 08:15.
      */
     private static String evaluation(String env, String reason, String ruleId) {
         return """
@@ -175,7 +175,7 @@ class RolloutDeviationTest {
     }
 
     /**
-     * K3-повідомлення flag.changes: флаг із rollout-бакетами on/off.
+     * Повідомлення flag.changes: флаг із rollout-бакетами on/off.
      */
     private static String changeWithRollout(String env, String flag, int onWeight, int offWeight) {
         return """

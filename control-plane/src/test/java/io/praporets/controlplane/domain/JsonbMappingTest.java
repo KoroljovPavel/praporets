@@ -11,7 +11,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * P1: JSONB-колонки зберігають records ядра і повертають їх еквівалентними.
+ * JSONB-колонки зберігають records ядра і повертають їх еквівалентними.
  * Еквівалентність records — це рівність значень, тож roundtrip-тести ловлять
  * будь-яку втрату даних у серіалізації.
  */

@@ -11,9 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * {@code GET /api/v1/audit?entityId=&limit=50} (CP-05, читання).
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @RestController} + анотації.
+ * {@code GET /api/v1/audit?entityId=&limit=50} — читання журналу аудиту сутності.
  */
 @RestController
 @RequestMapping("/api/v1/audit")

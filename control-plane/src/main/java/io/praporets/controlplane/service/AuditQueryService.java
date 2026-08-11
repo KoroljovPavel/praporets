@@ -12,9 +12,6 @@ import java.util.UUID;
 /**
  * Читання audit_log для {@code GET /api/v1/audit} (запис робить
  * {@link RevisionRecorder#audit} у транзакціях сервісів).
- *
- * <p><b>Реалізація (твоя робота):</b> {@code @Service},
- * {@code @Transactional(readOnly = true)}.
  */
 @Service
 @Transactional(readOnly = true)

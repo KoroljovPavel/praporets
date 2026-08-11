@@ -8,29 +8,12 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
- * Доступ до схеми analytics через {@code JdbcClient} (G1) — жодного ORM:
- * логіка і Є цими двома SQL-ами.
- *
- * <p><b>Залежності для інжекту:</b> {@code JdbcClient} (бін дає
- * spring-boot-starter-jdbc).
- *
- * <p><b>{@code markProcessed} (твоя робота):</b>
- * {@code INSERT INTO processed_event (evaluation_id) VALUES (?) ON CONFLICT
- * DO NOTHING} → {@code update()} повертає кількість рядків: 1 = нова подія,
- * 0 = дублікат (A-04). Це вся ідемпотентність — атомарна, переживає
- * рестарти і DLT-перегравання.
- *
- * <p><b>{@code incrementAggregate} (твоя робота):</b> upsert:
- * <pre>
- * INSERT INTO evaluation_agg (environment, flag_key, variant_key,
- *                             window_start, eval_count, unique_users)
- * VALUES (?, ?, ?, ?, 1, 0)
- * ON CONFLICT (environment, flag_key, variant_key, window_start)
- * DO UPDATE SET eval_count = evaluation_agg.eval_count + 1
- * </pre>
- * {@code unique_users} = 0 — чесний TODO 03d-2 (потребує віконного стану).
- * {@code windowStart} передавай типізовано ({@code OffsetDateTime} з UTC або
- * {@code Timestamp.from(instant)}) — камінь #7.
+ * Доступ до схеми analytics через {@code JdbcTemplate} — жодного ORM:
+ * логіка модуля і є цими кількома SQL-ами. Уся ідемпотентність конвеєра
+ * тримається на {@code ON CONFLICT DO NOTHING}: атомарно, переживає
+ * рестарти консюмера і перегравання з DLT. Часові параметри передаються
+ * типізовано ({@code OffsetDateTime} в UTC), не рядками — інакше
+ * порівняння вікон залежало б від таймзони сесії.
  */
 @Repository
 public class EvaluationAggRepository {
@@ -42,7 +25,8 @@ public class EvaluationAggRepository {
     }
 
     /**
-     * Позначає подію обробленою.
+     * Позначає подію обробленою ({@code INSERT ... ON CONFLICT DO NOTHING}
+     * у {@code processed_event}): кількість вставлених рядків і є відповіддю.
      *
      * @return {@code true}, якщо подія нова; {@code false} — уже бачили
      */
@@ -51,9 +35,12 @@ public class EvaluationAggRepository {
     }
 
     /**
-     * +1 до похвилинного агрегату (вставляє рядок вікна, якщо його ще нема).
+     * +1 до похвилинного агрегату (upsert: вставляє рядок вікна, якщо його
+     * ще нема, інакше інкрементить лічильники).
      *
-     * @param windowStart початок хвилинного вікна (уже обрізаний до хвилини)
+     * @param windowStart  початок хвилинного вікна (уже обрізаний до хвилини)
+     * @param uniqueDelta  1, якщо користувач у цьому вікні новий, інакше 0
+     * @param rolloutDelta 1, якщо подія — flag-level rollout, інакше 0
      */
     public void incrementAggregate(String environment, String flagKey, String variantKey, Instant windowStart, long uniqueDelta, long rolloutDelta) {
         jdbcTemplate.update("""
@@ -66,6 +53,11 @@ public class EvaluationAggRepository {
             """, environment, flagKey, variantKey, windowStart.atOffset(ZoneOffset.UTC), uniqueDelta, rolloutDelta);
     }
 
+    /**
+     * Реєструє користувача у вікні (таблиця {@code evaluation_user}).
+     *
+     * @return {@code true}, якщо користувач у цьому вікні вперше
+     */
     public boolean markUserSeen(String environment, String flagKey, String variantKey, Instant window, String userKeyHash) {
         return jdbcTemplate.update("""
                 insert into evaluation_user (environment, flag_key, variant_key, window_start, user_key_hash)

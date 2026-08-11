@@ -10,17 +10,17 @@ import java.util.Objects;
  * <p>Приклад: {@code IF user IN segment "beta-testers" THEN variant "treatment-a"},
  * або {@code IF country IN [UA] THEN rollout 50/50}.
  *
- * <p><b>Рівно один результат (D3):</b> правило має або {@code variantKey}
+ * <p><b>Рівно один результат:</b> правило має або {@code variantKey}
  * (фіксований варіант), або {@code rollout} (розподіл усередині правила) —
  * не обидва і не жодного. Друге поле — {@code null}.
  *
  * <p><b>Інші інваріанти:</b> {@code id} не blank ({@code id} потрапляє в
  * {@code EvaluationResult.ruleId} — по ньому оператор бачить, яке правило
  * спрацювало); {@code clauses} — незмінна копія; порожній список легальний і
- * означає «матчить усіх» (D2, консистентно з S6).
+ * означає «матчить усіх».
  *
  * @param id         стабільний ідентифікатор правила
- * @param clauses    умови, AND між ними (S1); порожній список матчить усіх (D2)
+ * @param clauses    умови, AND між ними; порожній список матчить усіх
  * @param variantKey фіксований варіант-результат або {@code null}
  * @param rollout    відсотковий розподіл або {@code null}
  */

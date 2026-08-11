@@ -24,9 +24,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 03d-2/H2: read path — {@code GET /api/v1/stats}. Агрегати сідяться SQL-ом
- * повз конвеєр (камінь #7): ендпоінт і в проді читає те, що в таблиці.
- * Ізоляція — унікальним environment на тест.
+ * Read path — {@code GET /api/v1/stats}. Агрегати сідяться SQL-ом
+ * повз конвеєр: ендпоінт і в проді читає те, що в таблиці, тож Kafka
+ * тут ні до чого. Ізоляція — унікальним environment на тест.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -69,7 +69,7 @@ class StatsEndpointTest {
         assertThat(on.points()).extracting(StatsResponse.Point::evalCount).containsExactly(5L, 2L);
         assertThat(on.points()).extracting(StatsResponse.Point::uniqueUsers).containsExactly(3L, 1L);
         assertThat(on.points()).extracting(StatsResponse.Point::cumulativeEvalCount)
-            .as("кумулятива — біжуча сума (H4)")
+            .as("кумулятива — біжуча сума")
             .containsExactly(5L, 7L);
 
         assertThat(seriesOf(response, "off").points())

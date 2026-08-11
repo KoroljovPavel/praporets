@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 02c: чистий юніт на зворотний мапер proto → core (без Quarkus). Пінить
+ * Специфікує мапінг proto → core (чистий юніт, без Quarkus). Фіксує
  * граничні місця: proto3-«відсутність» (hasRollout, порожні рядки) → null
  * у core, і захист від {@code *_UNSPECIFIED}.
  */

@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Тіло {@code PUT /api/v1/environments/{env}/segments/{key}} — повна заміна умов.
- * {@link Clause} — record із ядра (P1/G2): невалідна умова не пройде
+ * {@link Clause} — record із ядра: невалідна умова не пройде
  * десеріалізацію (канонічний конструктор кине IAE → 400).
  */
 public record UpsertSegmentRequest(

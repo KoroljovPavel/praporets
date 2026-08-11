@@ -8,19 +8,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 /**
- * Rollout-лічильники одного закритого вікна (I3).
- *
- * <p><b>Залежності для інжекту:</b> {@code JdbcClient}.
- *
- * <p><b>{@code rolloutCounts} (твоя робота):</b>
- * <pre>
- * SELECT environment, flag_key, variant_key, rollout_count
- * FROM evaluation_agg
- * WHERE window_start = :window AND rollout_count &gt; 0
- * </pre>
- * ({@code window} — {@code atOffset(UTC)}, уроки 03d-1/2). Варіанти з
- * нульовим rollout_count у вибірку не входять — «зниклі» варіанти
- * добудовує {@link DeviationChecker} з очікувань (I5).
+ * Rollout-лічильники одного закритого вікна з {@code evaluation_agg}.
+ * Варіанти з нульовим rollout_count у вибірку не входять — «зниклі»
+ * варіанти добудовує {@link DeviationChecker} з очікуваних ваг.
  */
 @Repository
 public class DeviationRepository {
@@ -37,6 +27,9 @@ public class DeviationRepository {
     public record RolloutCount(String environment, String flagKey, String variantKey, long rolloutCount) {
     }
 
+    /**
+     * Усі рядки вікна {@code windowStart} з {@code rollout_count > 0}.
+     */
     public List<RolloutCount> rolloutCounts(Instant windowStart) {
         return jdbcClient.sql("""
                     select environment, flag_key, variant_key, rollout_count

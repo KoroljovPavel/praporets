@@ -11,7 +11,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 02e: контракт мапінгу core→proto (V4). Чистий юніт — без Quarkus.
+ * Специфікує контракт мапінгу core→proto. Чистий юніт — без Quarkus.
  */
 class ResultProtoMapperTest {
 

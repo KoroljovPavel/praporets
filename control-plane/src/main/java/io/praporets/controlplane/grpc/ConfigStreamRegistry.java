@@ -14,30 +14,23 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 /**
- * Реєстр відкритих gRPC-стрімів цієї репліки (спека §7.3): хто на який
- * environment підписаний. Ключ — environmentKey, значення — множина активних
- * {@code StreamObserver}-ів. Пам'ять процесу, БД не торкається — впав процес,
- * впали і стріми, edge перепідключиться (02d).
+ * Реєстр відкритих gRPC-стрімів цієї репліки: хто на який environment
+ * підписаний. Ключ — environmentKey, значення — множина активних
+ * {@code StreamObserver}-ів. Живе лише в пам'яті процесу, БД не торкається —
+ * впав процес, впали і стріми, edge перепідключиться сам.
  *
- * <p><b>Реалізація (твоя робота).</b> Вимоги:
+ * <p>Контракти конкурентності:
  * <ul>
- *   <li><b>Потокобезпека мапи:</b> register/deregister/publish конкурують
- *       (gRPC-тред, event-listener після коміту, heartbeat-планувальник).
- *       {@code ConcurrentHashMap} + {@code ConcurrentHashMap.newKeySet()} для
- *       множин; порожню множину після останнього deregister прибрати з мапи
- *       (інакше {@link #activeEnvironments} вічно віддаватиме мертві env
- *       heartbeat-планувальнику);</li>
- *   <li><b>Потокобезпека observer-а:</b> сам {@code StreamObserver} НЕ
- *       thread-safe, а onNext на один стрім можуть звати кілька тредів
- *       одночасно (live-push + heartbeat). Серіалізуй виклики:
- *       {@code synchronized (observer) { observer.onNext(update); }};</li>
- *   <li><b>Мертві стріми:</b> {@code onNext} кинув
+ *   <li>register/deregister/publish конкурують (gRPC-тред, Kafka-консюмер
+ *       fan-out, heartbeat-планувальник) — мапа {@code ConcurrentHashMap},
+ *       множини {@code ConcurrentHashMap.newKeySet()};</li>
+ *   <li>сам {@code StreamObserver} НЕ thread-safe, а onNext на один стрім
+ *       можуть звати кілька тредів одночасно (live-push + heartbeat) —
+ *       {@link #send} серіалізує виклики через {@code synchronized (observer)};</li>
+ *   <li>мертві стріми: {@code onNext}, що кинув
  *       {@code StatusRuntimeException}/{@code IllegalStateException} (клієнт
- *       зник, стрім уже закритий) → deregister цього observer-а і йти далі —
- *       один мертвий підписник не має ламати розсилку решті;</li>
- *   <li>публікація йде по <b>знімку</b> множини (ітерація конкурентної
- *       множини під час deregister — ок для {@code newKeySet()}, але знімок
- *       робить поведінку очевидною).</li>
+ *       зник, стрім уже закритий), веде до дереєстрації цього observer-а,
+ *       розсилка решті продовжується.</li>
  * </ul>
  */
 @Component
@@ -47,7 +40,7 @@ public class ConfigStreamRegistry {
         new ConcurrentHashMap<>();
 
     public ConfigStreamRegistry(MeterRegistry meterRegistry) {
-        // NFR/дашборд: «активні стріми» — перша метрика етапу 2 (спека §10)
+        // «активні стріми» — базова операційна метрика data plane для дашборда
         Gauge.builder("praporets_config_streams_active", this, ConfigStreamRegistry::activeStreams)
             .description("Кількість відкритих StreamConfig-стрімів цієї репліки")
             .register(meterRegistry);

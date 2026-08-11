@@ -23,9 +23,10 @@ import java.util.function.BooleanSupplier;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 03d-2/H1: unique_users рахується точно і ідемпотентно (A-02), лічильник
- * {@code praporets_evaluations_total} росте тільки для нових подій (A-06/H3).
- * Той самий контекст та ізоляція даними, що в тесті 03d-1.
+ * unique_users рахується точно і ідемпотентно (на вікно, не глобально),
+ * лічильник {@code praporets_evaluations_total} росте тільки для нових
+ * подій. Той самий контекст та ізоляція даними, що в
+ * {@link AnalyticsEvaluationsConsumerTest}.
  */
 @SpringBootTest
 class UniqueUsersAggregationTest {
@@ -93,7 +94,7 @@ class UniqueUsersAggregationTest {
         String duplicated = payload(evaluationId, env, "2026-08-01T10:15:10Z", "on", "user-a");
 
         produce(env, duplicated);
-        produce(env, duplicated);  // дублікат (A-04) — лічильник мовчить (H3)
+        produce(env, duplicated);  // дублікат — лічильник мовчить
         produce(env, event(env, "2026-08-01T10:15:20Z", "barrier", "user-b"));
 
         awaitTrue("бар'єр оброблено", () -> evalCount(env, "barrier") == 1);

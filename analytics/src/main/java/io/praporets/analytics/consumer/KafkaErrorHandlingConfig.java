@@ -10,29 +10,20 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
 /**
- * DLT-маршрутизація (G5, A-05): помилка обробки після ретраїв відправляє
+ * DLT-маршрутизація: помилка обробки після ретраїв відправляє
  * ОРИГІНАЛЬНИЙ запис у {@code praporets.flag.evaluations.v1.dlt} і партиція
- * їде далі.
+ * їде далі. Boot сам підхоплює {@code DefaultErrorHandler}-бін для всіх
+ * listener-контейнерів.
  *
- * <p><b>Бін (твоя робота):</b> {@code DefaultErrorHandler} —
- * Boot сам підхоплює його для всіх listener-контейнерів:
- * <pre>
- * &#64;Bean
- * DefaultErrorHandler kafkaErrorHandler(KafkaTemplate&lt;String, String&gt; template) {
- *     var recoverer = new DeadLetterPublishingRecoverer(template,
- *         (record, ex) -&gt; new TopicPartition(KafkaTopics.FLAG_EVALUATIONS_DLT, 0));
- *     return new DefaultErrorHandler(recoverer, new FixedBackOff(500L, 3L));
- * }
- * </pre>
- * Деталі:
+ * <p>Деталі:
  * <ul>
  *   <li>резолвер призначення явний: дефолтний ліпить суфікс {@code .DLT}
- *       і ту САМУ партицію оригіналу (у нас 6 → у DLT-топіку її нема) —
- *       тому {@code (topic, 0)} руками;</li>
- *   <li>{@code FixedBackOff(500, 3)} = 4 спроби сумарно (камінь #6):
- *       достатньо пережити транзієнтний збій БД, не тримаючи партицію;</li>
+ *       і ту САМУ партицію оригіналу (в основному топіку партицій більше,
+ *       ніж у DLT) — тому {@code (topic, 0)} руками;</li>
+ *   <li>{@code FixedBackOff(500, 3)} = 4 спроби сумарно: достатньо
+ *       пережити транзієнтний збій БД, не тримаючи партицію;</li>
  *   <li>recoverer сам додає діагностичні header-и (exception, original
- *       topic/offset) — нічого не пакувати руками (камінь #5).</li>
+ *       topic/offset) — руками нічого не пакується.</li>
  * </ul>
  */
 @Configuration

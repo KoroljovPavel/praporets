@@ -1,9 +1,10 @@
 package io.praporets.core.model;
 
+import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -36,7 +37,7 @@ class ClauseModelTest {
 
     @Test
     void clause_allows_empty_values() {
-        // S6: порожній values легальний — просто нікого не матчить
+        // порожній values легальний — просто нікого не матчить
         assertThat(new Clause("country", Operator.IN, List.of(), false).values()).isEmpty();
     }
 
@@ -60,7 +61,7 @@ class ClauseModelTest {
 
     @Test
     void segment_allows_empty_clauses() {
-        // S6: сегмент без умов = «усі користувачі»
+        // сегмент без умов = «усі користувачі»
         assertThat(new Segment("everyone", List.of()).clauses()).isEmpty();
     }
 
@@ -118,7 +119,7 @@ class ClauseModelTest {
 
     @Test
     void userKey_pseudo_attribute_wins_over_attributes_map() {
-        // S3: ідентичність користувача не можна перекрити атрибутом
+        // ідентичність користувача не можна перекрити атрибутом
         var context = new EvaluationContext("user-42", Map.of("userKey", "spoofed"));
 
         assertThat(context.attribute("userKey")).contains("user-42");

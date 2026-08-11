@@ -10,9 +10,11 @@ public interface RevisionLogRepository extends JpaRepository<RevisionLogEntry, L
     /** Останні ревізії середовища, новіші перші. {@link Limit} — рідний спосіб Spring Data обмежити вибірку. */
     List<RevisionLogEntry> findByEnvironmentKeyOrderByRevisionDesc(String environmentKey, Limit limit);
 
-    /** Для rollback (H4): усі записи до {@code toRevision} включно, новіші перші. */
+    /**
+     * Для rollback: усі записи до {@code toRevision} включно, новіші перші.
+     */
     List<RevisionLogEntry> findByEnvironmentKeyAndRevisionLessThanEqualOrderByRevisionDesc(String environmentKey, long revision);
 
-    /** Для склеєної дельти 02b (спека §7.4): записи СУВОРО ПІСЛЯ {@code revision}, старіші перші. */
+    /** Для склеєної дельти: записи СУВОРО ПІСЛЯ {@code revision}, старіші перші. */
     List<RevisionLogEntry> findByEnvironmentKeyAndRevisionGreaterThanOrderByRevisionAsc(String environmentKey, long revision);
 }

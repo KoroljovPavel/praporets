@@ -15,7 +15,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 03a: контракт ЗАПИСУ в outbox (K3/K4) — рядок народжується в тій самій
+ * Контракт запису в outbox — рядок народжується в тій самій
  * транзакції, що й зміна конфігурації, і вмирає разом з нею при відкаті.
  */
 class OutboxWriteTest extends AbstractOutboxTest {
@@ -55,7 +55,7 @@ class OutboxWriteTest extends AbstractOutboxTest {
 
         assertThat(json.get("environmentKey").asString()).isEqualTo(env);
         assertThat(json.get("revision").asLong()).isEqualTo(1);
-        // дельта — proto ConfigDelta через JsonFormat: lowerCamel-поля (K3)
+        // дельта — proto ConfigDelta через JsonFormat: lowerCamel-поля
         JsonNode upserted = json.get("delta").get("upsertedFlags");
         assertThat(upserted).isNotNull();
         assertThat(upserted.get(0).get("key").asString()).isEqualTo(flagKeyFor(env));
@@ -67,7 +67,7 @@ class OutboxWriteTest extends AbstractOutboxTest {
         long before = outboxCount(env);
 
         // подія летить усередині транзакції, яку ми відкочуємо — BEFORE_COMMIT
-        // слухач уже записав рядок, але відкат мусить забрати і його (K4)
+        // слухач уже записав рядок, але відкат мусить забрати і його
         transactionTemplate.executeWithoutResult(status -> {
             eventPublisher.publishEvent(new ConfigChangedEvent(env, 1));
             status.setRollbackOnly();

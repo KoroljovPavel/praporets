@@ -7,8 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
 /**
- * Тіло {@code POST /api/v1/evaluate} — дзеркало gRPC {@code EvaluateRequest}
- * (V5). ГОТОВИЙ контракт: поля і валідація пінятся тестами.
+ * Тіло {@code POST /api/v1/evaluate} — дзеркало gRPC {@code EvaluateRequest}.
  *
  * <p>{@code attributes} може бути відсутнім у JSON → {@code null} тут;
  * нормалізація в порожню мапу — справа ресурсу, не DTO.

@@ -8,18 +8,15 @@ import org.junit.platform.suite.api.Suite;
 import static io.cucumber.junit.platform.engine.Constants.*;
 
 /**
- * 03e: точка входу Cucumber через JUnit Platform Suite — Gradle бачить цей
+ * Точка входу Cucumber через JUnit Platform Suite — Gradle бачить цей
  * клас як звичайний тест, cucumber-junit-platform-engine знаходить
  * {@code .feature}-файли на класпасі поруч ({@code io/praporets/e2e}) і
  * матчить кроки на glue-пакет {@code io.praporets.e2e}.
  *
- * <p>Рівно 3 сценарії (скоуп-рішення CLAUDE.md) в 3 feature-файлах:
+ * <p>Рівно 3 сценарії в 3 feature-файлах — свідоме скоуп-рішення:
  * {@code propagation.feature}, {@code cp-outage.feature},
- * {@code concurrent-edits.feature}. Нових не додавати.
- *
- * <p>Strict mode у Cucumber 7.x завжди увімкнений: undefined/pending кроки
- * валять прогін — саме тому скелети кроків із {@code PendingException}
- * червоні до реалізації.
+ * {@code concurrent-edits.feature}. Нових не додавати — усе інше
+ * покривають інтеграційні тести модулів.
  */
 @Suite
 @IncludeEngines("cucumber")

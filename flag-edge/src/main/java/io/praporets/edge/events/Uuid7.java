@@ -4,9 +4,9 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Генератор UUIDv7 (E4): time-ordered id для evaluation-подій. У JDK версії 7
- * немає, а A-04 (ідемпотентність) і аналітика хочуть id, що сортується за
- * часом створення.
+ * Генератор UUIDv7: time-ordered id для evaluation-подій. У JDK генератора
+ * версії 7 немає, а ідемпотентність в analytics і сама аналітика хочуть id,
+ * що сортується за часом створення.
  *
  * <p><b>Layout (RFC 9562):</b>
  * <pre>
@@ -14,11 +14,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * lsb: [2 біти варіанта = 0b10][62 біти random]
  * </pre>
  *
- * <p><b>Реалізація (твоя робота):</b> {@code System.currentTimeMillis()} +
- * {@code ThreadLocalRandom}; зібрати два long бітовими операціями і віддати
- * {@code new java.util.UUID(msb, lsb).toString()}. Монотонність УСЕРЕДИНІ
- * однієї мілісекунди не гарантуємо (це дозволено RFC і достатньо для
- * аналітики) — тест перевіряє порядок лише через межу мілісекунди.
+ * <p>Реалізація — {@code System.currentTimeMillis()} +
+ * {@code ThreadLocalRandom}, бітова збірка двох long. Монотонність УСЕРЕДИНІ
+ * однієї мілісекунди не гарантується (це дозволено RFC і достатньо для
+ * аналітики) — впорядкованість тримається лише через межу мілісекунди.
  */
 public final class Uuid7 {
 

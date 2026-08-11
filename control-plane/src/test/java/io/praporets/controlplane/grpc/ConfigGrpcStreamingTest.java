@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 02b: наскрізний контракт gRPC ConfigService — снапшот, catch-up дельта,
+ * Наскрізний контракт gRPC ConfigService — снапшот, catch-up дельта,
  * live-пуш після коміту, SnapshotRequired за межами вікна, heartbeat,
  * прибирання стрімів. Сервер — справжній, але in-process (без порту);
  * Postgres — той самий singleton, що й у решти інтеграційних.
@@ -46,8 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Heartbeat прискорено до 250мс, вікно ревізій звужено до 5 — інакше
  * SnapshotRequired довелося б «заробляти» 500 комітами.
  *
- * <p><b>03b:</b> live-пуш більше не локальний — тест live-дельти став
- * наскрізним: REST → outbox → relay (тік руками) → Kafka → консюмер fan-out →
+ * <p>Тест live-дельти наскрізний — шлях повний:
+ * REST → outbox → relay (тік руками) → Kafka → консюмер fan-out →
  * gRPC-стрім. Relay-ПЛАНУВАЛЬНИК вимкнений свідомо: Spring кешує цей контекст
  * живим до кінця JVM, і фоновий relay із доступним Kafka публікував би рядки
  * спільного Postgres, поки ганяються outbox-тести, ламаючи їхні асерти на
@@ -179,7 +179,7 @@ class ConfigGrpcStreamingTest {
     }
 
     /**
-     * 03b, камінь #1: консюмер із {@code latest} не побачить повідомлення,
+     * Консюмер із {@code latest} не побачить повідомлення,
      * продюснуте ДО того, як йому роздали партиції — чекаємо assignment.
      */
     private void awaitFanoutAssigned() throws InterruptedException {
@@ -274,7 +274,7 @@ class ConfigGrpcStreamingTest {
         awaitFanoutAssigned();
 
         toggle(env, flagKey, false);  // ревізія 2, комітиться по-справжньому
-        // 03b: пуш їде через Kafka; планувальник вимкнений — тік руками.
+        // пуш їде через Kafka; планувальник вимкнений — тік руками.
         // Drain, а не один batch: наш рядок НАЙНОВІШИЙ, а relay бере
         // найстаріші — попереду може стояти хвіст сусідніх тестів
         while (relay.relayBatch() > 0) {
@@ -283,7 +283,7 @@ class ConfigGrpcStreamingTest {
 
         // at-least-once: рядок ревізії 1 (putInitialConfig) теж лежав у outbox
         // неопублікованим, і drain віддає його ПІСЛЯ підписки — стрім легально
-        // бачить стару дельту перед новою. Edge дедупить за ревізією (02d);
+        // бачить стару дельту перед новою. Edge дедупить за ревізією;
         // тест робить так само: скіпає все, що старіше за очікувану ревізію 2
         ConfigUpdate update = nextNonHeartbeat(updates);
         while (update.getRevision() < 2) {
@@ -356,7 +356,7 @@ class ConfigGrpcStreamingTest {
 
         ConfigUpdate heartbeat = awaitHeartbeat(updates);
         assertThat(heartbeat.getHeartbeat().getServerTimeMillis()).isPositive();
-        // ревізія в heartbeat = детектор відставання для edge (02d)
+        // ревізія в heartbeat = детектор відставання для edge
         assertThat(heartbeat.getRevision()).isEqualTo(1);
     }
 

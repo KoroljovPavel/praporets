@@ -5,8 +5,8 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * Singleton-Kafka (KRaft) — той самий образ, що в compose і тестах CP/edge.
- * Auto-create топіків у контейнері лишається дефолтним (true) — тест
- * перевіряє обробку подій, не топологію (декларує її CP, 03c).
+ * Auto-create топіків у контейнері лишається дефолтним (true) — тести
+ * перевіряють обробку подій, не топологію (її декларує control-plane).
  */
 public final class TestKafka {
 

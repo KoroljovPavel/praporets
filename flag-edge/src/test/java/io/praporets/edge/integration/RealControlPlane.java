@@ -22,8 +22,8 @@ import java.time.Duration;
 import java.util.Map;
 
 /**
- * 02f (I2): СПРАВЖНІЙ control-plane для інтеграційного тесту — Testcontainers
- * замість фейка. Піднімає ізольовану мережу: Postgres 17 + CP (bootJar на
+ * СПРАВЖНІЙ control-plane для інтеграційного тесту — Testcontainers замість
+ * фейка. Піднімає ізольовану мережу: Postgres 17 + Kafka + CP (bootJar на
  * eclipse-temurin:25-jre; шлях до jar передає Gradle через system property
  * {@code praporets.cp.jar}). Edge (тестовий Quarkus) дивиться на CP через
  * host-порти.
@@ -38,11 +38,11 @@ import java.util.Map;
  * off=false), config: enabled, правило {@code r1: country IN [UA] → on},
  * без rollout.
  *
- * <p><b>03b:</b> у мережі також Kafka — після видалення локального
- * publisher-а live-пуш їде ТІЛЬКИ через outbox → relay → топік → fanout-
- * консюмер, тож без брокера пропагація мертва. Тест пропагації тепер
- * наскрізний у найповнішому сенсі: REST → БД → Kafka → gRPC-стрім → edge.
- * Kafka навмисно НЕ рестартиться у сценаріях outage CP — падає лише CP.
+ * <p><b>Kafka в мережі обов'язкова:</b> live-пуш у CP їде ТІЛЬКИ через
+ * outbox → relay → топік → fanout-консюмер, тож без брокера пропагація
+ * мертва. Тест пропагації через це наскрізний у найповнішому сенсі:
+ * REST → БД → Kafka → gRPC-стрім → edge. Kafka навмисно НЕ рестартиться у
+ * сценаріях outage CP — падає лише CP.
  */
 public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
 
@@ -113,7 +113,7 @@ public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
             .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
             .waitingFor(Wait.forHttp("/actuator/health").forPort(8080)
                 .withStartupTimeout(Duration.ofMinutes(2)));
-        // фіксовані host-порти: переживають stop()/start() контейнера (I2)
+        // фіксовані host-порти: переживають stop()/start() контейнера
         cp.setPortBindings(java.util.List.of(cpRestPort + ":8080", cpGrpcPort + ":9090"));
         return cp;
     }
@@ -164,8 +164,10 @@ public class RealControlPlane implements QuarkusTestResourceLifecycleManager {
     }
 
     /**
-     * I4: стрибок ревізії повз revision-window (500) прямо в БД. Викликати
-     * ТІЛЬКИ при зупиненому CP (камінь #6 спеки).
+     * Стрибок ревізії повз revision-window (500) прямо в БД — щоб змусити CP
+     * відповісти SnapshotRequired. Викликати ТІЛЬКИ при зупиненому CP:
+     * зміна БД в обхід застосунку під живим сервером розсинхронізувала б
+     * його стан із базою.
      */
     public static void bumpRevisionInDatabase(long delta) {
         try (Connection c = jdbc(); Statement s = c.createStatement()) {

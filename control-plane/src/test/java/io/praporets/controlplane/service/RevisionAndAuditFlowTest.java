@@ -1,30 +1,15 @@
 package io.praporets.controlplane.service;
 
-import tools.jackson.databind.node.BooleanNode;
-import tools.jackson.databind.node.StringNode;
 import io.praporets.controlplane.AbstractIntegrationTest;
-import io.praporets.controlplane.api.dto.CreateEnvironmentRequest;
-import io.praporets.controlplane.api.dto.CreateFlagRequest;
-import io.praporets.controlplane.api.dto.FlagResponse;
-import io.praporets.controlplane.api.dto.UpdateFlagRequest;
-import io.praporets.controlplane.api.dto.UpsertFlagConfigRequest;
-import io.praporets.controlplane.api.dto.UpsertSegmentRequest;
-import io.praporets.controlplane.api.dto.VariantDto;
-import io.praporets.controlplane.domain.AuditLogRepository;
-import io.praporets.controlplane.domain.ChangeType;
-import io.praporets.controlplane.domain.EnvironmentRepository;
-import io.praporets.controlplane.domain.RevisionLogEntry;
-import io.praporets.controlplane.domain.RevisionLogRepository;
-import io.praporets.controlplane.domain.ValueType;
-import io.praporets.core.model.Bucket;
-import io.praporets.core.model.Clause;
-import io.praporets.core.model.Operator;
-import io.praporets.core.model.Rollout;
-import io.praporets.core.model.Rule;
+import io.praporets.controlplane.api.dto.*;
+import io.praporets.controlplane.domain.*;
+import io.praporets.core.model.*;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Limit;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.StringNode;
 
 import java.util.List;
 
@@ -32,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Транзакційна семантика ревізій та аудиту (CP-05, G6, G8) на рівні сервісів —
+ * Транзакційна семантика ревізій та аудиту на рівні сервісів —
  * те, чого не видно крізь HTTP: монотонність ревізій між різними типами змін,
  * канонічна форма payload, before/after в аудиті, доменна валідація.
  */
@@ -95,7 +80,7 @@ class RevisionAndAuditFlowTest extends AbstractIntegrationTest {
         var entry = entries.getFirst();
         assertThat(entry.getRevision()).isEqualTo(1);
         assertThat(entry.getChangeType()).isEqualTo(ChangeType.FLAG_CONFIG_UPDATED);
-        // канонічна JSON-форма (G8): імена компонентів core-records
+        // канонічна JSON-форма: імена компонентів core-records
         assertThat(entry.getPayload().at("/rules/0/variantKey").asText()).isEqualTo("on");
         assertThat(entry.getPayload().get("defaultVariant").asText()).isEqualTo("on");
     }

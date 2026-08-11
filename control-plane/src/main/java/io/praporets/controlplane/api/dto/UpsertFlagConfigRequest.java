@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Тіло {@code PUT /api/v1/environments/{env}/flags/{key}/config} — повна заміна
- * конфігурації. {@link Rule}/{@link Rollout} — records ядра (G2): rollout із
+ * конфігурації. {@link Rule}/{@link Rollout} — records ядра: rollout із
  * вагами, що не дають {@code Rollout.TOTAL_WEIGHT}, не десеріалізується → 400.
  *
  * <p>{@code rules == null} трактується як порожній список;

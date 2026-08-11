@@ -1,9 +1,9 @@
 package io.praporets.analytics.common;
 
 /**
- * Канонічні імена Kafka-топіків (спека §6.4) — власна копія analytics:
+ * Канонічні імена Kafka-топіків — власна копія analytics:
  * модулі незалежні, спільного «common»-артефакту свідомо немає (це
- * імена-контракти, а не код). Декларує топіки control-plane (03c).
+ * імена-контракти, а не код). Топіки декларує control-plane.
  */
 public final class KafkaTopics {
 
@@ -13,7 +13,7 @@ public final class KafkaTopics {
     public static final String FLAG_EVALUATIONS = "praporets.flag.evaluations.v1";
 
     /**
-     * Отруйні повідомлення після вичерпання ретраїв (G5).
+     * Отруйні повідомлення після вичерпання ретраїв.
      */
     public static final String FLAG_EVALUATIONS_DLT = "praporets.flag.evaluations.v1.dlt";
 

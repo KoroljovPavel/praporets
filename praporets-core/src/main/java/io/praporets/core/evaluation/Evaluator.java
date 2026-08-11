@@ -7,16 +7,16 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Головний алгоритм обчислення флага (спека 7.1). Чиста тотальна функція:
+ * Головний алгоритм обчислення флага. Чиста тотальна функція:
  * жодного стану, I/O чи виключень через вміст конфігурації — саме її
  * використовують і edge (гарячий шлях), і control-plane (dry-run preview),
- * тому вона живе в спільному ядрі (ADR-012).
+ * тому вона живе в спільному ядрі.
  *
  * <p><b>Порядок кроків (контракт):</b>
  * <ol>
- *   <li>флага немає → {@code FLAG_NOT_FOUND} (D4: без варіанта, клієнт підставить свій default);</li>
- *   <li>{@code !enabled} → {@code offVariant} / {@code FLAG_DISABLED} — правила не перевіряються (D5);</li>
- *   <li>правила по порядку (D1), перше, чиї clauses всі збіглися
+ *   <li>флага немає → {@code FLAG_NOT_FOUND} (без варіанта, клієнт підставить свій default);</li>
+ *   <li>{@code !enabled} → {@code offVariant} / {@code FLAG_DISABLED} — правила не перевіряються;</li>
+ *   <li>правила по порядку, перше, чиї clauses всі збіглися
  *       ({@code ClauseEvaluator.matchesAll} із сегментами config):
  *       з rollout → бакет / {@code ROLLOUT} + ruleId; інакше → варіант / {@code RULE_MATCH} + ruleId;</li>
  *   <li>{@code flag.rollout != null} → бакет / {@code ROLLOUT} без ruleId;</li>
@@ -28,7 +28,7 @@ import java.util.Objects;
  * лягають на ту саму сітку точок.
  *
  * <p>{@code jsonValue} результату — значення першого варіанта з відповідним
- * ключем; якщо такого варіанта немає — {@code null} (D6).
+ * ключем; якщо такого варіанта немає — {@code null}.
  */
 public final class Evaluator {
 

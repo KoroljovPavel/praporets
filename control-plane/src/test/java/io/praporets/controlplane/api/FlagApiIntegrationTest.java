@@ -6,17 +6,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Повний стек REST → сервіс → Postgres: життєвий цикл флага з If-Match (G4),
+ * Повний стек REST → сервіс → Postgres: життєвий цикл флага з If-Match,
  * archive замість delete, конфігурація з ревізіями через API, аудит із X-Actor.
  */
 class FlagApiIntegrationTest extends AbstractIntegrationTest {
@@ -129,7 +123,7 @@ class FlagApiIntegrationTest extends AbstractIntegrationTest {
         createFlag();
 
         // повторне створення того самого ресурсу — конфлікт стану, не помилка формату:
-        // 409, не 400. Детермінований шлях — явний pre-check у сервісі (див. фідбек кроку)
+        // 409, не 400. Детермінований шлях — явний pre-check у сервісі
         mvc.perform(post("/api/v1/flags").contentType(MediaType.APPLICATION_JSON).content(FLAG_JSON))
                 .andExpect(status().isConflict())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
@@ -169,7 +163,7 @@ class FlagApiIntegrationTest extends AbstractIntegrationTest {
                         .content(CONFIG_JSON))
                 .andExpect(status().isConflict());
 
-        // kill switch — без If-Match свідомо (G5)
+        // kill switch — без If-Match свідомо
         mvc.perform(post("/api/v1/environments/dev/flags/checkout.new-flow/toggle")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -195,7 +189,7 @@ class FlagApiIntegrationTest extends AbstractIntegrationTest {
         createFlag();
 
         // 30k + 30k ≠ 100k: канонічний конструктор Rollout кидає IAE ще при
-        // десеріалізації — невалідна конфігурація не досягає навіть сервісу (P1/G2)
+        // десеріалізації — невалідна конфігурація не досягає навіть сервісу
         mvc.perform(put("/api/v1/environments/dev/flags/checkout.new-flow/config")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

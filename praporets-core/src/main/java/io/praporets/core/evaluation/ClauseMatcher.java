@@ -16,7 +16,7 @@ import java.util.Set;
  * (додаси новий матчер — не скомпілюється, доки не обробиш).
  *
  * <p>{@code negate} свідомо НЕ входить у матчери: він застосовується один раз
- * у {@link ClauseEvaluator} до базового результату (S2), інакше кожен матчер
+ * у {@link ClauseEvaluator} до базового результату, інакше кожен матчер
  * дублював би цю логіку.
  */
 public sealed interface ClauseMatcher {
@@ -40,7 +40,7 @@ public sealed interface ClauseMatcher {
     /**
      * Числове порівняння {@code GREATER_THAN} / {@code LESS_THAN}.
      *
-     * @param bounds межі, вже розпарсені; невалідні значення відкинуті при компіляції (S4)
+     * @param bounds межі, вже розпарсені; невалідні значення відкинуті при компіляції
      */
     record Numeric(NumericOp op, List<BigDecimal> bounds) implements OfAttribute {
     }
@@ -48,7 +48,7 @@ public sealed interface ClauseMatcher {
     /**
      * {@code SEMVER_GREATER_OR_EQUAL}: атрибут ≥ одної з мінімальних версій.
      *
-     * @param minimums мінімальні версії; невалідні відкинуті при компіляції (S4)
+     * @param minimums мінімальні версії; невалідні відкинуті при компіляції
      */
     record SemverAtLeast(List<Semver> minimums) implements OfAttribute {
     }
@@ -68,7 +68,7 @@ public sealed interface ClauseMatcher {
     /**
      * Компілює clause у матчер за {@code clause.operator()}.
      *
-     * <p>Правило S4: значення {@code values}, які не парсяться (не число для
+     * <p>Значення {@code values}, які не парсяться (не число для
      * Numeric, не версія для SemverAtLeast), мовчки відкидаються — матчер із
      * порожнім списком просто нікого не матчить. Компіляція ніколи не кидає
      * через вміст values.

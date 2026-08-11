@@ -21,26 +21,23 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * REST-обчислення одного флага (E-03, V5): {@code POST /api/v1/evaluate}
- * на спільному HTTP-порту 8081 (там же health і metrics).
+ * REST-обчислення одного флага: {@code POST /api/v1/evaluate} на спільному
+ * HTTP-порту 8081 (там же health і metrics). Proto в REST-шляху не бере
+ * участі: core-результат перекладається одразу в {@link EvaluateHttpResponse}.
  *
- * <p><b>Залежності для інжекту:</b>
- * {@link io.praporets.edge.config.ConfigStore},
- * {@code @ConfigProperty praporets.edge.environment}.
- * {@link io.praporets.edge.evaluation.ResultProtoMapper} тут НЕ потрібен —
- * proto в REST-шляху не бере участі: core-результат перекладається одразу в
- * {@link EvaluateHttpResponse}.
- *
- * <p><b>Каркас (той самий, що в gRPC-сервісі, але помилки — винятками):</b>
+ * <p>Каркас той самий, що в gRPC-сервісі, але помилки — винятками:
  * <ol>
  *   <li>Bean Validation спрацьовує ДО тіла методу ({@code @Valid}) —
  *       {@code ConstraintViolationException} ловить
  *       {@link ValidationProblemMapper} → 400;</li>
  *   <li>чуже середовище → {@link UnknownEnvironmentException} → 404;</li>
- *   <li>рівно один {@code StoredConfig} на запит (V2);</li>
+ *   <li>конфігурація ще не завантажена →
+ *       {@link EnvironmentNotLoadedException} → 503;</li>
+ *   <li>рівно один {@code StoredConfig} на запит — конфігурація для
+ *       обчислення і ревізія відповіді завжди узгоджені;</li>
  *   <li>{@code attributes == null} у запиті → порожня мапа;</li>
  *   <li>невідомий флаг → звичайна 200-відповідь із
- *       {@code reason=FLAG_NOT_FOUND} (V3);</li>
+ *       {@code reason=FLAG_NOT_FOUND};</li>
  *   <li>{@code reason} у відповіді — {@code result.reason().name()}.</li>
  * </ol>
  */

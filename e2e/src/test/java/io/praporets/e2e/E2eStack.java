@@ -27,12 +27,11 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
- * 03e (I5): спільний Testcontainers-стек для трьох BDD-сценаріїв — прямий
- * нащадок {@code RealControlPlane} з 02f, але БЕЗ Quarkus-тестового
- * застосунку: тут УСЕ у контейнерах, включно з {@value #EDGE_COUNT}
- * edge-репліками (fast-jar {@code flag-edge/build/quarkus-app} на
- * eclipse-temurin:25-jre; шлях передає Gradle через system property
- * {@code praporets.edge.app}).
+ * Спільний Testcontainers-стек для трьох BDD-сценаріїв: усе у контейнерах,
+ * включно з {@value #EDGE_COUNT} edge-репліками (fast-jar
+ * {@code flag-edge/build/quarkus-app} на eclipse-temurin:25-jre; шляхи до
+ * артефактів CP і edge передає Gradle через system properties
+ * {@code praporets.cp.jar} і {@code praporets.edge.app}).
  *
  * <p><b>Життєвий цикл:</b> стек стартує ЛІНИВО з першого Given-кроку через
  * {@link #ensureStarted()} (ідемпотентний, один стек на JVM-прогін) і живе
@@ -46,7 +45,7 @@ import java.util.function.BooleanSupplier;
  * edge REST/metrics через замаплені host-порти. <b>Host-порт CP REST
  * фіксований</b> — переживає stop/start у сценарії падіння.
  *
- * <p><b>Сідинг</b> (той самий, що в 02f): environment {@value #ENVIRONMENT},
+ * <p><b>Сідинг:</b> environment {@value #ENVIRONMENT},
  * флаг {@value #FLAG_KEY} (BOOLEAN, variants on=true/off=false), config:
  * enabled, правило {@code r1: country IN [UA] → on}, без rollout. Edge-и
  * стартують ПІСЛЯ сідингу — readiness чекає перший снапшот.
@@ -57,7 +56,7 @@ public final class E2eStack {
     public static final String FLAG_KEY = "checkout.new-flow";
     public static final int EDGE_COUNT = 3;
     /**
-     * Гейдж віку конфігурації на edge (SyncMetrics, 02d).
+     * Гейдж віку конфігурації на edge (метрика {@code SyncMetrics}).
      */
     public static final String STALENESS_METRIC = "flag_edge_config_staleness_seconds";
 
@@ -152,7 +151,7 @@ public final class E2eStack {
             .withEnv("SPRING_KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
             .waitingFor(Wait.forHttp("/actuator/health").forPort(8080)
                 .withStartupTimeout(Duration.ofMinutes(2)));
-        // фіксований host-порт REST: переживає stop()/start() (той самий трюк, що 02f I2)
+        // фіксований host-порт REST: переживає stop()/start() контейнера
         cp.setPortBindings(List.of(cpRestPort + ":8080"));
         return cp;
     }
@@ -325,8 +324,7 @@ public final class E2eStack {
 
     /**
      * Чекає умову до {@code timeoutMillis} (крок 50мс); не дочекалась —
-     * {@link AssertionError} з поясненням {@code what}. Той самий помічник,
-     * що в {@code CpEdgeIntegrationTest} (02f).
+     * {@link AssertionError} з поясненням {@code what}.
      */
     public static void await(String what, long timeoutMillis, BooleanSupplier condition) {
         long deadline = System.currentTimeMillis() + timeoutMillis;

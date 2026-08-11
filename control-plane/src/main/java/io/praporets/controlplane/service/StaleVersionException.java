@@ -1,7 +1,7 @@
 package io.praporets.controlplane.service;
 
 /**
- * If-Match не збігся з поточною версією (CP-07) → 409. Клієнт має
+ * If-Match не збігся з поточною версією → 409. Клієнт має
  * перечитати ресурс і повторити зміну поверх свіжої версії.
  */
 public class StaleVersionException extends RuntimeException {

@@ -8,13 +8,10 @@ import org.hibernate.type.SqlTypes;
 import java.util.UUID;
 
 /**
- * Варіант значення флага — таблиця {@code variant}.
- *
- * <p><b>Мапінг (твоя робота):</b> {@code @Entity}, id — {@code @UuidGenerator};
- * {@code flag} — {@code @ManyToOne(fetch = LAZY)} (P2!); {@code value} — колонка
- * JSONB: рядок із довільним JSON ({@code "true"}, {@code "\"blue\""}), мапиться
- * як {@code String} + {@code @JdbcTypeCode(SqlTypes.JSON)} — тест
- * {@code jsonb_columns_are_real_jsonb_not_text} перевірить, що в БД справді jsonb.
+ * Варіант значення флага — таблиця {@code variant}. {@code value} — JSONB-
+ * колонка з довільним JSON ({@code "true"}, {@code "\"blue\""}), у Java
+ * мапиться як {@code String}: парсити його тут нема кому, споживачі
+ * (proto-мапер, core) працюють із канонічним JSON-рядком.
  */
 @Entity
 @Table(name = "variant")

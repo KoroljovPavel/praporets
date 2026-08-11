@@ -2,7 +2,6 @@ package io.praporets.core.evaluation;
 
 import io.praporets.core.model.Bucket;
 import io.praporets.core.model.Rollout;
-import java.util.List;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.Property;
 import net.jqwik.api.constraints.AlphaChars;
@@ -10,11 +9,13 @@ import net.jqwik.api.constraints.IntRange;
 import net.jqwik.api.constraints.StringLength;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Властивості розподілу зі спеки, розділ 7.2. Числові межі в тестах рівномірності
+ * Властивості розподілу {@link Bucketer}. Числові межі в тестах рівномірності
  * та незалежності звірені з еталонною Python-реалізацією: для цих конкретних вхідних
  * даних коректна реалізація дає treatment=10058/100000 і 172/1000 розбіжностей.
  */
@@ -48,7 +49,7 @@ class BucketerTest {
             }
         }
 
-        // 10% ± 0.5 п.п. на 100k користувачів (NFR зі спеки; фактичне значення 10058)
+        // 10% ± 0.5 п.п. на 100k користувачів (проектна вимога рівномірності; фактичне значення 10058)
         assertThat(treatment).isBetween(9_500L, 10_500L);
     }
 

@@ -13,18 +13,18 @@ import java.util.Objects;
  * по sealed-ієрархії {@link ClauseMatcher} — <b>без {@code default}</b>, повноту
  * гарантує компілятор.
  *
- * <p><b>Семантика (рішення S1–S7 зі спеки кроку 01c):</b>
+ * <p><b>Семантика матчингу:</b>
  * <ul>
- *   <li>S1: між clauses — AND ({@link #matchesAll}), між values одного clause — OR;</li>
- *   <li>S2: відсутній атрибут → базовий результат false; {@code negate} інвертує
+ *   <li>між clauses — AND ({@link #matchesAll}), між values одного clause — OR;</li>
+ *   <li>відсутній атрибут → базовий результат false; {@code negate} інвертує
  *       будь-який базовий результат (negate + відсутній атрибут = true);</li>
- *   <li>S3: атрибут {@code "userKey"} резолвиться з {@link EvaluationContext#userKey()};</li>
- *   <li>S4: обчислення тотальне — ніколи не кидає через вміст даних (невалідне
+ *   <li>атрибут {@code "userKey"} резолвиться з {@link EvaluationContext#userKey()};</li>
+ *   <li>обчислення тотальне — ніколи не кидає через вміст даних (невалідне
  *       значення атрибута → false); NPE лише за null-аргументи;</li>
- *   <li>S5: невідомий сегмент → false; IN_SEGMENT всередині сегмента → false
+ *   <li>невідомий сегмент → false; IN_SEGMENT всередині сегмента → false
  *       (сегменти не вкладаються);</li>
- *   <li>S6: порожні values → false; сегмент із порожніми clauses матчить усіх;</li>
- *   <li>S7: рядкові порівняння чутливі до регістру.</li>
+ *   <li>порожні values → false; сегмент із порожніми clauses матчить усіх;</li>
+ *   <li>рядкові порівняння чутливі до регістру.</li>
  * </ul>
  */
 public final class ClauseEvaluator {

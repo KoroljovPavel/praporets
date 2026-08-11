@@ -1,25 +1,17 @@
 package io.praporets.core.evaluation;
 
-import io.praporets.core.model.Bucket;
-import io.praporets.core.model.Clause;
-import io.praporets.core.model.EnvironmentConfig;
-import io.praporets.core.model.EvaluationContext;
-import io.praporets.core.model.FlagDefinition;
-import io.praporets.core.model.Operator;
-import io.praporets.core.model.Rollout;
-import io.praporets.core.model.Rule;
-import io.praporets.core.model.Segment;
-import io.praporets.core.model.Variant;
+import io.praporets.core.model.*;
+import org.junit.jupiter.api.Test;
+
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Алгоритм зі спеки 7.1 + рішення D1–D8. Кожен тест пінить один крок
- * алгоритму або один пріоритет між кроками.
+ * Кожен тест пінить один крок алгоритму {@link Evaluator}
+ * або один пріоритет між кроками.
  */
 class EvaluatorTest {
 
@@ -63,7 +55,7 @@ class EvaluatorTest {
 
     @Test
     void disabled_flag_serves_off_variant_and_skips_rules() {
-        // D5: правило збіглося б (userKey IN user-1), але enabled=false його навіть не перевіряє
+        // правило збіглося б (userKey IN user-1), але enabled=false його навіть не перевіряє
         var flag = new FlagDefinition("f", false, "on", "off", ON_OFF,
                 List.of(new Rule("r1",
                         List.of(new Clause("userKey", Operator.IN, List.of("user-1"), false)),
@@ -92,7 +84,7 @@ class EvaluatorTest {
 
     @Test
     void first_matching_rule_wins() {
-        // D1: обидва правила збігаються — виграє перше за порядком
+        // обидва правила збігаються — виграє перше за порядком
         var flag = new FlagDefinition("f", true, "off", "off", ON_OFF,
                 List.of(
                         new Rule("r-first", List.of(countryIs("UA")), "on", null),
@@ -190,7 +182,7 @@ class EvaluatorTest {
                 "f", Reason.DEFAULT, "on", "true", null));
     }
 
-    // --- D6: розсинхрон variants ---
+    // --- Розсинхрон variants ---
 
     @Test
     void missing_variant_definition_yields_null_json_value_without_throwing() {
@@ -206,7 +198,7 @@ class EvaluatorTest {
 
     @Test
     void evaluate_all_returns_result_per_flag_sorted_by_key() {
-        // D8: порядок за ключем, не порядок Map
+        // порядок за ключем, не порядок Map
         var config = envWith(
                 new FlagDefinition("zulu", true, "on", "off", ON_OFF, List.of(), null),
                 new FlagDefinition("alpha", true, "on", "off", ON_OFF, List.of(), null),

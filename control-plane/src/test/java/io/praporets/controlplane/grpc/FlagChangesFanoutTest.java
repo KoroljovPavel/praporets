@@ -33,15 +33,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * 03b: контракт fan-out (CP-10) — те, що з'явилось у топіку, репліка пушить
+ * Контракт fan-out — те, що з'явилось у топіку, репліка пушить
  * у СВОЇ відкриті стріми. Роль «репліки A» грає сам тест: продюсить готові
- * K3-події в топік, а «реплікою B» виступає контекст під тестом — його
+ * події в топік, а «реплікою B» виступає контекст під тестом — його
  * консюмер має доставити дельту зареєстрованому підписнику.
  *
  * <p>Підписник — фейковий observer прямо в {@link ConfigStreamRegistry}
  * (справжній gRPC-шлях покриває {@code ConfigGrpcStreamingTest}). Relay
  * вимкнений — джерело подій тут тільки тест. Кожен тест чекає assignment
- * консюмера перед першим продюсом (камінь #1: {@code latest} + продюс до
+ * консюмера перед першим продюсом ({@code latest} + продюс до
  * assignment-у = загублене повідомлення).
  */
 @SpringBootTest(properties = "praporets.outbox.relay.enabled=false")
@@ -160,7 +160,7 @@ class FlagChangesFanoutTest {
     }
 
     /**
-     * K3-payload рівно в тому форматі, що пише OutboxWriter.
+     * Payload рівно в тому форматі, що пише OutboxWriter.
      */
     private static String payload(String env, long revision, String flagKey) throws Exception {
         ConfigDelta delta = ConfigDelta.newBuilder()

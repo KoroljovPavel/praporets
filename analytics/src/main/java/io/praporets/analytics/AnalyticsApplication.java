@@ -5,9 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Analytics (спека §4.3): консюмер {@code praporets.flag.evaluations.v1} →
+ * Analytics-сервіс: консюмер {@code praporets.flag.evaluations.v1} →
  * похвилинні агрегати в окремій БД {@code praporets_analytics}.
- * Spring Boot 4 + virtual threads; JdbcClient без ORM — свідомо (G1).
+ * Spring Boot 4 + virtual threads; доступ до БД через JdbcClient/JdbcTemplate
+ * без ORM — свідомо: вся логіка модуля і є кількома SQL-ами.
  */
 @SpringBootApplication
 @EnableScheduling

@@ -5,16 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * 01h: dry-run обчислення через praporets-core (CP-11) і rollback ревізії
- * (CP-06). Тільки HTTP — внутрішню структуру крок не пінить, дизайн твій.
+ * Dry-run обчислення через praporets-core і rollback ревізії середовища —
+ * специфікація лише на рівні HTTP-контракту.
  */
 class PreviewAndRollbackTest extends AbstractIntegrationTest {
 
@@ -82,7 +78,7 @@ class PreviewAndRollbackTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.ruleId").value("r1"))
                 .andExpect(jsonPath("$.revision").value(1));
 
-        // H3: dry-run — журнал не виріс
+        // dry-run — журнал не виріс
         mvc.perform(get("/api/v1/environments/dev/revisions"))
                 .andExpect(jsonPath("$", hasSize(1)));
     }

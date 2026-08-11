@@ -7,16 +7,15 @@ import jakarta.ws.rs.ext.Provider;
 
 /**
  * Bean Validation → 400 у форматі RFC 9457 {@code application/problem+json}
- * (V6) — замість дефолтного квіркусівського звіту про порушення, який НЕ є
- * нашим контрактом помилок.
+ * — замість дефолтного квіркусівського звіту про порушення, який не є нашим
+ * контрактом помилок.
  *
- * <p><b>Контракт відповіді</b> (мінімум RFC 9457, як у CP):
+ * <p><b>Контракт відповіді</b> (мінімум RFC 9457, як у control-plane):
  * {@code {"type":"about:blank","title":"Bad Request","status":400,
  * "detail":"<перелік порушень: path — message>"}} з
  * {@code Content-Type: application/problem+json}.
  *
- * <p>Камінь #5: без {@code @Provider} клас мовчки ігнорується. Камінь #7:
- * цей мапер перекриває вбудований, бо його тип точніший.
+ * <p>Цей мапер перекриває вбудований, бо його тип винятку точніший.
  */
 @Provider
 public class ValidationProblemMapper implements ExceptionMapper<ConstraintViolationException> {

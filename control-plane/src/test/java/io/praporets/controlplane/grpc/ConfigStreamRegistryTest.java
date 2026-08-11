@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
- * 02b: контракт реєстру стрімів — ізоляція середовищ, прибирання мертвих
+ * Контракт реєстру стрімів — ізоляція середовищ, прибирання мертвих
  * підписників, gauge. Чистий юніт: без Spring, без мережі.
  */
 class ConfigStreamRegistryTest {

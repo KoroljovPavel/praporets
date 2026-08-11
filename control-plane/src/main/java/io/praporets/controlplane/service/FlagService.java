@@ -8,7 +8,6 @@ import io.praporets.controlplane.domain.Flag;
 import io.praporets.controlplane.domain.FlagRepository;
 import io.praporets.controlplane.domain.ValueType;
 import io.praporets.controlplane.domain.Variant;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,25 +16,17 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.Set;
-
 /**
- * CRUD флагів (CP-02). Флаг — глобальна сутність: зміни йдуть в audit_log,
- * але НЕ створюють ревізію середовища (G6).
+ * CRUD флагів. Флаг — глобальна сутність (не прив'язана до середовища):
+ * зміни йдуть в audit_log, але НЕ створюють ревізію середовища — edge
+ * бачить лише зміни конфігурацій, не довідника флагів.
  *
- * <p><b>Реалізація (твоя робота):</b> {@code @Service} + {@code @Transactional}.
- * Валідація понад Bean Validation — тут, кидай {@link DomainValidationException}:
- * <ul>
- *   <li>значення кожного варіанта відповідає {@code valueType}
- *       (BOOLEAN → {@code JsonNode.isBoolean()}, NUMBER → {@code isNumber()},
- *       STRING → {@code isTextual()}, JSON → будь-що);</li>
- *   <li>ключі варіантів унікальні в межах флага;</li>
- *   <li>ключ флага ще не зайнятий.</li>
- * </ul>
- * Значення варіанта зберігається в {@code Variant.value} як JSON-рядок
- * ({@code JsonNode#toString()}); назад у {@code JsonNode} —
- * {@code ObjectMapper#readTree} (кинутий {@code JsonProcessingException}
- * можна загортати в {@code IllegalStateException} — БД містить валідний JSON).
+ * <p>Валідація понад Bean Validation живе тут і кидає
+ * {@link DomainValidationException}: значення кожного варіанта має
+ * відповідати {@code valueType} флага, ключі варіантів — унікальні в межах
+ * флага, ключ флага — ще не зайнятий. Значення варіанта зберігається в
+ * {@code Variant.value} як JSON-рядок і назад у {@code JsonNode} читається
+ * через {@code readTree} — БД містить валідний JSON.
  */
 @Service
 @Transactional(readOnly = true)
@@ -53,7 +44,6 @@ public class FlagService {
 
     /**
      * Сторінка флагів. {@code archived == null} — всі; інакше фільтр за прапорцем.
-     * Знадобиться метод репозиторію {@code findAllByArchived(boolean, Pageable)}.
      */
     public Page<FlagResponse> list(Boolean archived, Pageable pageable) {
         return (archived == null
@@ -69,7 +59,7 @@ public class FlagService {
     }
 
     /**
-     * Створює флаг разом із варіантами (каскад із 01f) + аудит
+     * Створює флаг разом із варіантами (каскадне збереження) + запис аудиту
      * ({@code CREATE}, {@code entityType=FLAG}, before=null, after=response).
      */
     @Transactional
@@ -118,9 +108,9 @@ public class FlagService {
     }
 
     /**
-     * Архівує флаг (G7 спеки кроку: DELETE — це {@code archived=true},
-     * hard delete зламав би історію ревізій). Ідемпотентно: повторна архівація
-     * не помилка. Аудит: {@code action=ARCHIVE}, before/after зі зміною прапорця.
+     * Архівує флаг: DELETE у API — це {@code archived=true}, hard delete
+     * зламав би історію ревізій. Ідемпотентно: повторна архівація не помилка.
+     * Аудит: {@code action=ARCHIVE}, before/after зі зміною прапорця.
      *
      * @throws NotFoundException якщо флага немає
      */

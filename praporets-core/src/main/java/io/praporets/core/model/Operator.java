@@ -2,7 +2,7 @@ package io.praporets.core.model;
 
 /**
  * Оператор порівняння у {@link Clause}. Дзеркалить enum {@code Operator}
- * з proto-контракту {@code praporets.config.v1} (спека, розділ 6.1).
+ * з proto-контракту {@code praporets.config.v1}.
  *
  * <p>Семантика кожного оператора визначена в {@link io.praporets.core.evaluation.ClauseEvaluator}.
  */

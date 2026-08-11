@@ -15,11 +15,9 @@ public interface FlagRepository extends JpaRepository<Flag, UUID> {
     Optional<Flag> findByKey(String key);
 
     /**
-     * Флаг разом із варіантами — <b>одним</b> SQL-запитом (P4).
-     *
-     * <p>Поточна заглушка вантажить лише флаг: доступ до {@code variants} дасть
-     * другий запит, і {@code FlagRepositoryQueryCountTest} червоний. Твоя робота —
-     * зробити один запит: {@code join fetch} у запиті або {@code @EntityGraph}.
+     * Флаг разом із варіантами — <b>одним</b> SQL-запитом:
+     * {@code @EntityGraph} перетворює доступ до {@code variants} на join
+     * замість другого запиту (це пінить {@code FlagRepositoryQueryCountTest}).
      */
     @Query("select f from Flag f where f.key = :key")
     @EntityGraph(attributePaths = "variants")

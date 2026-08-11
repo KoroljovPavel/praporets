@@ -11,7 +11,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.GeneralCodingRules.NO_CLASSES_SHOULD_USE_FIELD_INJECTION;
 
 /**
- * Архітектурні guardrails (G10). Ці правила зелені з першого дня — їхня
+ * Архітектурні guardrails. Ці правила зелені з першого дня — їхня
  * цінність у тому, що вони ЗАЛИШАТЬСЯ зеленими: порушення шарів або field
  * injection упаде на CI, а не в код-рев'ю.
  */
