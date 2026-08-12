@@ -1,0 +1,53 @@
+# 04c/I2: по ServiceMonitor-у на сервіс (спека §13.2). CRD ставить
+# kube-prometheus-stack — тому в make up ціль observability йде ДО чарта;
+# без стека чарт ставиться з monitoring.enabled=false.
+# Порти йменовані (http) — селектимо за ім'ям, не числом.
+# interval 5s для CP і edge: «синхронний стрибок ревізій» має бути видно
+# на графіку з секундною роздільністю, 15s розмазав би його.
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: control-plane
+  labels:
+    {{- include "praporets.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 5s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: flag-edge
+  labels:
+    {{- include "praporets.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /q/metrics
+      interval: 5s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: analytics
+  labels:
+    {{- include "praporets.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      # агрегати analytics міняються по хвилинних вікнах — 15s достатньо
+      interval: 15s
+{{- end }}

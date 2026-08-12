@@ -1,0 +1,17 @@
+# 04c/I3: дашборд «as code» — JSON живе в чарті (dashboards/), у кластер
+# їде цим ConfigMap-ом, grafana-sidecar kube-prometheus-stack підбирає його
+# за лейблом grafana_dashboard: "1" (searchNamespace: ALL у values-kps.yaml)
+# і провіженить без жодного кліку. Правка дашборда = правка JSON + helm
+# upgrade, ніякого «зберегти в UI».
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-praporets
+  labels:
+    {{- include "praporets.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  praporets-overview.json: |-
+{{ .Files.Get "dashboards/praporets-overview.json" | indent 4 }}
+{{- end }}

@@ -1,0 +1,315 @@
+{
+  "uid": "praporets-overview",
+  "title": "Praporets Overview",
+  "description": "Головний дашборд системи: синхронний стрибок ревізій CP та всіх edge-реплік, staleness, outbox lag, A/B-метрики. Провіжениться as code з Helm-чарта praporets (ConfigMap + grafana sidecar).",
+  "tags": ["praporets"],
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0,
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Config revision — CP (джерело правди) vs кожна edge-репліка",
+      "description": "Головна картинка системи: у момент зміни флага лінія CP і лінії ВСІХ edge-реплік стрибають на нову ревізію синхронно (<1s). Розрив ліній = репліка живе на старій конфігурації (дивись staleness).",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "spanNulls": true
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "^CP .*" },
+            "properties": [
+              { "id": "custom.lineWidth", "value": 4 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (environment) (praporets_config_revision{job=\"control-plane\"})",
+          "legendFormat": "CP · {{environment}}"
+        },
+        {
+          "refId": "B",
+          "expr": "flag_edge_config_revision{job=\"flag-edge\"}",
+          "legendFormat": "edge · {{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Edge config staleness (секунди від останньої дельти/heartbeat)",
+      "description": "Ціна AP-вибору: при розриві CP↔edge edge продовжує відповідати старою конфігурацією, а ця метрика росте. Heartbeat кожні 15s ⇒ у нормі пилка 0–15s. Червона лінія — поріг алерту EdgeConfigStale.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "unit": "s",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 60 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "flag_edge_config_staleness_seconds{job=\"flag-edge\"}",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Outbox lag (вік найстарішої неопублікованої події)",
+      "description": "Здоровий relay тримає це біля нуля (poll кожні 200ms). Зростання = Kafka недоступна або relay не встигає — зміни конфігурації не розлітаються. Поріг алерту OutboxLagging — 30s.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 12, "y": 9, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "unit": "s",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 30 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "praporets_outbox_lag_seconds{job=\"control-plane\"}",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Evaluations rate по варіантах (analytics)",
+      "description": "rate(praporets_evaluations_total) — скільки обчислень/с довозить конвеєр edge → Kafka → analytics. Розріз по variant — основа A/B-картинки. Порожньо = трафіку на edge немає або конвеєр стоїть.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 20, "showPoints": "never", "stacking": { "mode": "normal" } },
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (flag, variant) (rate(praporets_evaluations_total{job=\"analytics\"}[1m]))",
+          "legendFormat": "{{flag}} · {{variant}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Rollout deviation (факт − ціль, A-07)",
+      "description": "Наскільки фактична частка варіанта розійшлася з вагами rollout. У нормі шумить біля нуля; |x| > 0.05 (пороги алерту RolloutDeviation) = бакетування бреше або трафік нечесний.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "unit": "none",
+          "decimals": 3,
+          "min": -0.2,
+          "max": 0.2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": -0.05 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "praporets_rollout_deviation{job=\"analytics\"}",
+          "legendFormat": "{{flag}} · {{variant}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Dropped evaluation-події (за 5m)",
+      "description": "Буфер подій на edge неблокуючий свідомо (обчислення важливіше за телеметрію) — але дропи мають бути ВИДИМІ: ненульове значення = аналітика цього вікна недорахована (reason: buffer_full / send_failed).",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 0, "y": 25, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "showPoints": "never" },
+          "unit": "none",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (increase(flag_edge_events_dropped_total{job=\"flag-edge\"}[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Активні StreamConfig-стріми на репліку CP",
+      "description": "Скільки edge-реплік тримає живий gRPC-стрім до цієї репліки CP. Сума по CP-репліках = кількість живих edge. Провал до нуля + ріст staleness = edge втратили CP (chaos-сценарій NFR-08).",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 8, "y": 25, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" },
+          "decimals": 0,
+          "unit": "none",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "praporets_config_streams_active{job=\"control-plane\"}",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Edge RPS по подах (метрика RPS-HPA)",
+      "description": "rate(http_server_requests_seconds_count{uri=/api/v1/evaluate}[1m]) — та сама формула, якою prometheus-adapter годує HPA (custom-метрика praporets_edge_evaluations_per_second). Середнє по подах > target ⇒ HPA додає репліки.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "x": 16, "y": 25, "w": 8, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 15, "showPoints": "never" },
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (rate(http_server_requests_seconds_count{job=\"flag-edge\", uri=\"/api/v1/evaluate\"}[1m]))",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    }
+  ]
+}

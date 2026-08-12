@@ -125,6 +125,19 @@ analytics:
       failureThreshold: 3
   terminationGracePeriodSeconds: 30
 
+# 04c: усе, що вимагає CRD-ів kube-prometheus-stack (ServiceMonitor,
+# PrometheusRule) і його grafana-sidecar-а (дашборд-ConfigMap). enabled=false
+# дозволяє поставити чарт БЕЗ observability-стека (CRD-ів немає — apply
+# ServiceMonitor падає). У make up стек ставиться ДО чарта, тож дефолт true.
+monitoring:
+  enabled: true
+  # Пороги алертів PrometheusRule; «Перевірка» 04c звужує їх через --set,
+  # щоб побачити firing без справжньої аварії
+  alerts:
+    stalenessSeconds: 60
+    outboxLagSeconds: 30
+    rolloutDeviation: 0.05
+
 # Один вузол, без HA (скоуп). Ті самі образи, що в compose.yaml —
 # у kind і в `make dev` поведінка інфраструктури ідентична.
 # 04b: resources — так; повний securityContext-hardening StatefulSet-ів —

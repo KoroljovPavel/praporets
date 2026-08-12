@@ -4,6 +4,8 @@ metadata:
   name: flag-edge
   labels:
     {{- include "praporets.labels" . | nindent 4 }}
+    # 04c: лейбл для селектора ServiceMonitor (пояснення — control-plane-service)
+    {{- include "praporets.selectorLabels" (dict "name" "flag-edge") | nindent 4 }}
 spec:
   type: NodePort
   selector:

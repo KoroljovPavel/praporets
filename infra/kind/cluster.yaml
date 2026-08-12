@@ -20,5 +20,12 @@ nodes:
         hostPort: 30081
       - containerPort: 30082 # analytics REST
         hostPort: 30082
+      # 04c: observability-стек (kube-prometheus-stack). Додавання мапінгу —
+      # це ПЕРЕСТВОРЕННЯ кластера (kind не вміє міняти конфіг на живому):
+      # make down && make up
+      - containerPort: 30300 # Grafana (NodePort із infra/observability/values-kps.yaml)
+        hostPort: 30300
+      - containerPort: 30900 # Prometheus UI (/alerts, /targets)
+        hostPort: 30900
   - role: worker
   - role: worker

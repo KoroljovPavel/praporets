@@ -1,0 +1,42 @@
+# values для prometheus-community/prometheus-adapter @ 5.3.0
+# (04c, рішення I5): міст Prometheus → custom.metrics.k8s.io, щоб HPA
+# flag-edge масштабував за RPS (заготовка flagEdge.hpa.rps з 04b).
+#
+# Один-єдиний rule: НІЯКИХ default-рулів (вони експортували б сотні
+# випадкових серій як custom-метрики — шум і зайва робота адаптера).
+
+# prometheus-operated — service, який Prometheus Operator створює для
+# БУДЬ-ЯКОГО Prometheus CR; стабільніший за helm-ім'я kps-prometheus
+prometheus:
+  url: http://prometheus-operated.monitoring.svc
+  port: 9090
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+rules:
+  default: false
+  custom:
+    # ФАКТИЧНА метрика на /q/metrics edge (перевірено на живому кластері
+    # 04c): http_server_requests_seconds_count{method,outcome,status,uri}.
+    # Обмеження uri="/api/v1/evaluate" — рахуємо саме evaluation-RPS, а не
+    # health-проби; gRPC-виклики Evaluate сюди НЕ входять (quarkus
+    # grpc-server-метрики — окремі і в 04c не мапляться; k6/curl-навантаження
+    # йде через REST). Ім'я custom-метрики = flagEdge.hpa.rps.metric у
+    # values чарта praporets — HPA і адаптер мають бачити один рядок.
+    - seriesQuery: 'http_server_requests_seconds_count{namespace="praporets",uri="/api/v1/evaluate"}'
+      resources:
+        overrides:
+          namespace: { resource: namespace }
+          pod: { resource: pod }
+      name:
+        matches: "^.*$"
+        as: "praporets_edge_evaluations_per_second"
+      # rate за 1m: коротше вікно робить HPA смиканим, довше — глухим до
+      # спайків; 1m узгоджений із періодом опитування HPA (15s) із запасом
+      metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)

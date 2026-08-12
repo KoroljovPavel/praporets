@@ -30,7 +30,12 @@ else
 JIB_PLATFORM := linux/amd64
 endif
 
-.PHONY: dev dev-down test-e2e images kind-up metrics-server kind-load seed-env up down urls
+.PHONY: dev dev-down test-e2e images kind-up metrics-server observability kind-load seed-env up down urls
+
+# Пін версій зовнішніх чартів observability (04c, рішення I1/I5):
+# оновлення — свідомий крок, не «останнє, що віддав repo у момент make up»
+KPS_VERSION     := 88.2.0
+ADAPTER_VERSION := 5.3.0
 
 dev:
 	docker compose up -d --wait
@@ -71,7 +76,28 @@ seed-env:
 	case $$code in 201|409) echo "environment dev: HTTP $$code (ok)";; \
 	*) echo "environment dev: HTTP $$code — CP не готовий?" >&2; exit 1;; esac
 
-up: kind-up metrics-server images kind-load
+# Observability-стек (04c, рішення I1): kube-prometheus-stack + prometheus-adapter
+# у namespace monitoring. Ставиться ДО чарта praporets — той містить
+# ServiceMonitor/PrometheusRule, і без CRD-ів оператора його apply падає.
+# `helm repo add` ідемпотентний (--force-update лише оновлює URL); --wait на
+# kps — далі adapter одразу ходить у prometheus-operated. Grafana/Prometheus
+# доступні з хоста через NodePort 30300/30900 (extraPortMappings у
+# infra/kind/cluster.yaml — при апгрейді зі старого кластера потрібен
+# make down && make up).
+observability:
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+	helm upgrade --install kps prometheus-community/kube-prometheus-stack \
+		--version $(KPS_VERSION) \
+		--namespace monitoring --create-namespace \
+		-f infra/observability/values-kps.yaml \
+		--wait --timeout 5m
+	helm upgrade --install prometheus-adapter prometheus-community/prometheus-adapter \
+		--version $(ADAPTER_VERSION) \
+		--namespace monitoring \
+		-f infra/observability/values-prometheus-adapter.yaml \
+		--wait --timeout 3m
+
+up: kind-up metrics-server observability images kind-load
 	helm upgrade --install praporets $(CHART) \
 		--namespace $(NS) --create-namespace \
 		-f $(CHART)/values-local.yaml
@@ -93,4 +119,8 @@ urls:
 	@echo "  control-plane gRPC   localhost:30090          (grpcurl -plaintext localhost:30090 list)"
 	@echo "  flag-edge REST+gRPC  http://localhost:30081   (health: /q/health; gRPC на тому ж порту)"
 	@echo "  analytics REST       http://localhost:30082   (health: /actuator/health)"
+	@echo ""
+	@echo "Observability:"
+	@echo "  Grafana              http://localhost:30300   (admin / praporets; дашборд: Praporets Overview)"
+	@echo "  Prometheus           http://localhost:30900   (алерти: /alerts, таргети: /targets)"
 	@echo ""

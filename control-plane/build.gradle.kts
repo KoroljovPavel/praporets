@@ -20,6 +20,11 @@ dependencies {
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
     implementation(libs.spring.boot.starter.actuator)
+    // 04c: registry вмикає /actuator/prometheus (його скрейпить ServiceMonitor).
+    // runtimeOnly, як в analytics: код компілюється проти micrometer-core
+    // (транзитивно з actuator), формат Prometheus — деталь рантайму. Версією
+    // керує Boot BOM.
+    runtimeOnly(libs.micrometer.registry.prometheus)
     // transactional outbox → Kafka (стартер, не голий spring-kafka:
     // Boot 4 модульний — ConnectionDetails/автоконфіг живуть у spring-boot-kafka)
     implementation(libs.spring.boot.starter.kafka)

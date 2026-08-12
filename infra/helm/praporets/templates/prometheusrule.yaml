@@ -1,0 +1,72 @@
+# 04c/I4: 5 доменних алертів (3 зі спеки §12.5 + 2 операційні).
+# Маршрутизація (Alertmanager) — поза скоупом: алерти видно в Prometheus UI
+# (/alerts) і в Grafana → Alerting. Пороги — values.monitoring.alerts,
+# щоб «Перевірка» могла звузити поріг через --set і побачити firing наживо.
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: praporets
+  labels:
+    {{- include "praporets.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: praporets
+      rules:
+        # AP-компроміс системи, зроблений видимим: при розриві CP↔edge edge
+        # СВІДОМО відповідає старою конфігурацією (02d) — цей алерт і є ціна
+        # компромісу: «токсичність» застарілих відповідей перевищила поріг
+        - alert: EdgeConfigStale
+          expr: flag_edge_config_staleness_seconds > {{ .Values.monitoring.alerts.stalenessSeconds }}
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "edge {{ printf "{{ $labels.pod }}" }} живе на застарілій конфігурації"
+            description: "Понад {{ .Values.monitoring.alerts.stalenessSeconds }}s без дельти/heartbeat від CP — зміни флагів НЕ доїжджають до цієї репліки."
+
+        # Outbox гарантує at-least-once, але не «вчасно»: якщо relay не
+        # встигає (Kafka лежить, батч замалий), зміни конфігурації висять
+        # у БД і fan-out на інші репліки CP зупинений
+        - alert: OutboxLagging
+          expr: praporets_outbox_lag_seconds > {{ .Values.monitoring.alerts.outboxLagSeconds }}
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "outbox-relay не встигає публікувати в Kafka"
+            description: "Найстаріша неопублікована подія старша за {{ .Values.monitoring.alerts.outboxLagSeconds }}s — деградація доставки змін (fan-out і аналітика)."
+
+        # A-07: фактична частка варіанта розійшлася з вагами rollout —
+        # або зламане бакетування (баг у детермінізмі), або нечесний трафік
+        - alert: RolloutDeviation
+          expr: abs(praporets_rollout_deviation) > {{ .Values.monitoring.alerts.rolloutDeviation }}
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "розподіл варіантів відхилився від цільового rollout"
+            description: "{{ printf "{{ $labels.flag }}/{{ $labels.variant }}" }}: |факт − ціль| > {{ .Values.monitoring.alerts.rolloutDeviation }} — A/B-результати цього флага не можна читати як істину."
+
+        # PDB (04b) обіцяє ≥2 живих edge при drain-ах; якщо доступних менше —
+        # обіцянка вже порушена (нода лежить / CrashLoop), запас відмов нуль
+        - alert: FlagEdgeInsufficientReplicas
+          expr: kube_deployment_status_replicas_available{namespace="{{ .Release.Namespace }}", deployment="flag-edge"} < 2
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "менше 2 доступних реплік flag-edge"
+            description: "Data plane без запасу відмовостійкості: наступний збій ноди = відмова обчислення флагів."
+
+        # Буфер подій неблокуючий СВІДОМО (03c: обчислення важливіше за
+        # телеметрію) — але мовчки губити дані не можна: дропи = аналітика
+        # цього вікна бреше
+        - alert: FlagEdgeDroppingEvents
+          expr: increase(flag_edge_events_dropped_total[5m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "edge {{ printf "{{ $labels.pod }}" }} дропає evaluation-події ({{ printf "{{ $labels.reason }}" }})"
+            description: "Переповнення буфера або збій Kafka-продюсера — статистика A/B недорахована."
+{{- end }}

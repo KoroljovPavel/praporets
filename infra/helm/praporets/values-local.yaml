@@ -9,3 +9,13 @@ image:
 # 04b: перекриття flagEdge.replicas=2 прибрано — масштабом edge володіє HPA
 # (hpa.minReplicas=3; менше не можна: PDB minAvailable=2 заблокував би drain,
 # рішення I6). Дефолтні resources уже «ноутбучні», окремих перекриттів немає.
+
+# 04c: RPS-частина HPA вмикається — prometheus-adapter стоїть (ціль
+# observability в make up) і мапить http_server_requests_seconds_count
+# edge-подів у custom-метрику praporets_edge_evaluations_per_second
+# (infra/observability/values-prometheus-adapter.yaml). metric/target —
+# дефолти з values.yaml (заготовка 04b).
+flagEdge:
+  hpa:
+    rps:
+      enabled: true

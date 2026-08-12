@@ -1,0 +1,87 @@
+# values для prometheus-community/kube-prometheus-stack @ 88.2.0
+# (04c, рішення I1; ставиться ціллю `make observability`, викликається з `up`).
+#
+# Стек величезний — тут вимкнено все, що не працює на демонстрацію 04c.
+# Кожне вимкнення аргументоване коментарем; повторне ввімкнення — свідоме
+# рішення пізнішого кроку, не «випадково стерли рядок».
+
+# коротші імена ресурсів: prometheus-operated, kps-grafana, kps-operator …
+fullnameOverride: kps
+
+# Маршрутизація нотифікацій — поза скоупом 04c (anti-scope): алерти видно
+# в Prometheus UI (/alerts) і в Grafana; Slack/e-mail нічого не демонструють
+# у портфоліо без справжніх отримувачів.
+alertmanager:
+  enabled: false
+
+# Хостові метрики kind-нод (це Docker-контейнери на ноутбуці) — шум:
+# жодна панель/алерт 04c їх не читає. CPU/RAM подів дає kubelet/cAdvisor.
+nodeExporter:
+  enabled: false
+
+# kube-state-metrics ЛИШАЄТЬСЯ: алерт FlagEdgeInsufficientReplicas читає
+# kube_deployment_status_replicas_available.
+kubeStateMetrics:
+  enabled: true
+
+# Контрол-плейн-компоненти в kind не віддають метрики назовні (біндяться
+# на localhost control-plane-ноди) — таргети були б вічно DOWN і псували
+# сторінку targets. Це обмеження kind, не нашого стека.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+
+# Сотні генеричних k8s-алертів і recording-рулів ховали б наші 5 доменних
+# (PrometheusRule у чарті praporets). Кому потрібен KubeMemoryOvercommit
+# на ноутбучному kind — вмикає точково.
+defaultRules:
+  create: false
+
+prometheus:
+  # NodePort 30900 → localhost:30900 через extraPortMappings у
+  # infra/kind/cluster.yaml (додано в 04c — кластер ПЕРЕСТВОРЮЄТЬСЯ)
+  service:
+    type: NodePort
+    nodePort: 30900
+  prometheusSpec:
+    # *NilUsesHelmValues=false: підбирати ВСІ ServiceMonitor/PrometheusRule
+    # кластера, а не лише з release=kps. Наші живуть у чарті praporets
+    # (інший release, інший namespace) — без цього Prometheus їх не побачить.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    # демо-кластер: доба історії з головою, диск ноутбука не резиновий
+    retention: 24h
+    # глобальний дефолт; ServiceMonitor-и CP/edge перекривають на 5s,
+    # щоб стрибок ревізій був «синхронним» і на графіку, не лише в житті
+    scrapeInterval: 15s
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+grafana:
+  # демо-логін; друкується в make urls. Секрети тут нічого не захищають —
+  # кластер локальний і одноразовий
+  adminPassword: praporets
+  service:
+    type: NodePort
+    nodePort: 30300
+  # Дефолтні k8s-дашборди (два десятки) ховали б Praporets Overview.
+  # JVM/Runtime-дашборд зі спеки §12.4 — окремим кроком, не з коробки.
+  defaultDashboardsEnabled: false
+  sidecar:
+    dashboards:
+      enabled: true
+      # наш дашборд-ConfigMap живе в namespace praporets (чарт praporets),
+      # сайдкар за замовчуванням дивиться лише свій namespace
+      searchNamespace: ALL
+      label: grafana_dashboard

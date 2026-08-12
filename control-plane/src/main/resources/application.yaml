@@ -64,4 +64,5 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        # 04c: prometheus — /actuator/prometheus, його скрейпить ServiceMonitor
+        include: health,info,metrics,prometheus

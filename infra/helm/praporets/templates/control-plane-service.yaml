@@ -9,6 +9,9 @@ metadata:
   name: control-plane
   labels:
     {{- include "praporets.labels" . | nindent 4 }}
+    # 04c: ServiceMonitor знаходить Service за цим лейблом (селектор Service
+    # нижче — про ПОДИ, метадата-лейбли Service — окрема річ)
+    {{- include "praporets.selectorLabels" (dict "name" "control-plane") | nindent 4 }}
 spec:
   type: NodePort
   selector:

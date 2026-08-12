@@ -4,6 +4,8 @@ metadata:
   name: analytics
   labels:
     {{- include "praporets.labels" . | nindent 4 }}
+    # 04c: лейбл для селектора ServiceMonitor (пояснення — control-plane-service)
+    {{- include "praporets.selectorLabels" (dict "name" "analytics") | nindent 4 }}
 spec:
   type: NodePort
   selector:
