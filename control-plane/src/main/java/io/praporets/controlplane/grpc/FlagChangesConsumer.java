@@ -53,13 +53,16 @@ import java.util.Arrays;
 public class FlagChangesConsumer {
 
     private final JsonMapper jsonMapper;
+    private final ConfigRevisionMetrics configRevisionMetrics;
     private final ConfigStreamRegistry configStreamRegistry;
 
     private static final Logger log = LoggerFactory.getLogger(FlagChangesConsumer.class);
 
-    public FlagChangesConsumer(JsonMapper jsonMapper, ConfigStreamRegistry configStreamRegistry) {
+    public FlagChangesConsumer(JsonMapper jsonMapper, ConfigStreamRegistry configStreamRegistry,
+                               ConfigRevisionMetrics configRevisionMetrics) {
         this.jsonMapper = jsonMapper;
         this.configStreamRegistry = configStreamRegistry;
+        this.configRevisionMetrics = configRevisionMetrics;
     }
 
     @KafkaListener(
@@ -74,20 +77,29 @@ public class FlagChangesConsumer {
             log.warn("Flag change received for unknown schema-version header");
             return;
         }
+
+        long revision;
+        ConfigDelta.Builder builder = ConfigDelta.newBuilder();
+
+        try {
+            JsonNode rawPayload = jsonMapper.readTree(record.value());
+            revision = rawPayload.get("revision").asLong();
+            JsonFormat.parser().merge(rawPayload.get("delta").toString(), builder);
+            configRevisionMetrics.update(record.key(), revision);
+        } catch (Exception e) {
+            log.error("Failed to process config change for environment {}, topic {}, partition {}, offset {}", record.key(), record.topic(), record.partition(), record.offset(), e);
+            return;
+        }
+
         if (!configStreamRegistry.activeEnvironments().contains(record.key())) {
             log.debug("Flag change received for unknown environment {}", record.key());
             return;
         }
 
         try {
-            JsonNode rawPayload = jsonMapper.readTree(record.value());
-            long revision = rawPayload.get("revision").asLong();
-
-            ConfigDelta.Builder builder = ConfigDelta.newBuilder();
-            JsonFormat.parser().merge(rawPayload.get("delta").toString(), builder);
             configStreamRegistry.publish(record.key(), ConfigUpdate.newBuilder().setRevision(revision).setDelta(builder.build()).build());
         } catch (Exception e) {
-            log.error("Failed to process config change for environment {}, topic {}, partition {}, offset {}", record.key(), record.topic(), record.partition(), record.offset(), e);
+            log.error("Failed to publish config change for environment {}, topic {}, partition {}, offset {}", record.key(), record.topic(), record.partition(), record.offset(), e);
         }
     }
 }
